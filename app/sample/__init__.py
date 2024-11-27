@@ -19,61 +19,63 @@ def uploadsampleinfo():
     data = request.json['data']
     tag = request.json['tag']
     print(data)
-    if tag == 'edit':
-        i = data[0]
-        i['sampleCollectionTime'] = changeUTCtoLocal(i['sampleCollectionTime']) if i['sampleCollectionTime'] != '' else None
-        i['sampleReceiveTime'] = changeUTCtoLocal(i['sampleReceiveTime']) if i['sampleReceiveTime'] != '' else None
-        sampleinfo = i
-        pendinginfo = pendingSample.query.filter(pendingSample.sampleBarcode==i['sampleBarcode']).first()
-        if pendinginfo:
-            if i['projectName'] == ['待定']:
-                pendinginfo.update(**i)
-            else:
-                for pb in i['projectName']:
-                    if pb == '待定':
-                        continue
-                    sampleinfo['projectName'] = pb
-                    sampleinfo['projectBarcode'] = projectName2Barcode[pb]
-                    info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==pb)).first()
-                    if info:
-                        info.update(**i)
-                    else:
-                        sample = SampleInfo(**i)
-                        db.session.add(sample)
-                db.session.delete(pendinginfo)
-        else:
-            info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==i['projectName'])).first()
-            if info:
-                info.update(**i)
-    else:
-        for i in data:
+    try:
+        if tag == 'edit':
+            i = data[0]
             i['sampleCollectionTime'] = changeUTCtoLocal(i['sampleCollectionTime']) if i['sampleCollectionTime'] != '' else None
             i['sampleReceiveTime'] = changeUTCtoLocal(i['sampleReceiveTime']) if i['sampleReceiveTime'] != '' else None
             sampleinfo = i
-            if i['projectName'] == ['待定']:
-                sampleinfo['projectName'] = '待定'
-                sampleinfo['projectBarcode'] = '待定'
-                sampleinfo['sampleStatus'] = '已收样'
-                info = pendingSample.query.filter(and_(pendingSample.sampleBarcode==i['sampleBarcode'], pendingSample.projectName==i['projectName'])).first()
+            pendinginfo = pendingSample.query.filter(pendingSample.sampleBarcode==i['sampleBarcode']).first()
+            if pendinginfo:
+                if i['projectName'] == ['待定']:
+                    pendinginfo.update(**i)
+                else:
+                    for pb in i['projectName']:
+                        if pb == '待定':
+                            continue
+                        sampleinfo['projectName'] = pb
+                        sampleinfo['projectBarcode'] = projectName2Barcode[pb]
+                        info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==pb)).first()
+                        if info:
+                            info.update(**i)
+                        else:
+                            sample = SampleInfo(**i)
+                            db.session.add(sample)
+                    db.session.delete(pendinginfo)
+            else:
+                info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==i['projectName'])).first()
                 if info:
                     info.update(**i)
-                else:
-                    sample = pendingSample(**i)
-                    db.session.add(sample)
-            else:
-                for pb in i['projectName']:
-                    info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==pb)).first()
-                    sampleinfo['projectName'] = pb
-                    sampleinfo['projectBarcode'] = projectName2Barcode[pb]
+        else:
+            for i in data:
+                i['sampleCollectionTime'] = changeUTCtoLocal(i['sampleCollectionTime']) if i['sampleCollectionTime'] != '' else None
+                i['sampleReceiveTime'] = changeUTCtoLocal(i['sampleReceiveTime']) if i['sampleReceiveTime'] != '' else None
+                sampleinfo = i
+                if i['projectName'] == ['待定']:
+                    sampleinfo['projectName'] = '待定'
+                    sampleinfo['projectBarcode'] = '待定'
+                    sampleinfo['sampleStatus'] = '已收样'
+                    info = pendingSample.query.filter(and_(pendingSample.sampleBarcode==i['sampleBarcode'], pendingSample.projectName==i['projectName'])).first()
                     if info:
                         info.update(**i)
                     else:
-                        sample = SampleInfo(**i)
+                        sample = pendingSample(**i)
                         db.session.add(sample)
-    db.session.commit()
-    # except Exception as e:
-    #     db.session.rollback()
-    #     return jsonify({'msg':'fail!', 'code':500})
+                else:
+                    for pb in i['projectName']:
+                        info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==pb)).first()
+                        sampleinfo['projectName'] = pb
+                        sampleinfo['projectBarcode'] = projectName2Barcode[pb]
+                        if info:
+                            info.update(**i)
+                        else:
+                            sample = SampleInfo(**i)
+                            db.session.add(sample)
+        db.session.commit()
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg':'fail!', 'code':500})
     return jsonify({'msg':'success!', 'code':200})
 
 ### lis系统获取样本信息api
@@ -192,7 +194,6 @@ def searchsampleinfo():
 def searchnameorbarcode():
     data = request.get_json()
     projectName = data['projectName']
-    print(projectName[0:3])
     if 'sampleBarcode' in data.keys():
         info = SampleInfo.query.filter(SampleInfo.sampleBarcode == data['sampleBarcode']).all()
     elif 'patientName' in data.keys():
@@ -203,7 +204,6 @@ def searchnameorbarcode():
         res = []
         for i in info:
             res.append(i.to_json())
-        print(res)
         return jsonify({'msg': 'success', 'code': 200, 'data':res})
 
 ### 样本信息删除api
@@ -212,17 +212,22 @@ def searchnameorbarcode():
 def deletesampleinfo():
     sampleBarcode = request.json['sampleBarcode']
     projectName = request.json['projectName']
-    info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==sampleBarcode, SampleInfo.projectName==projectName)).first()
-    delinfo = info.to_json()
-    delinfo['delOperator'] = g.username
-    del delinfo['id']
-    del delinfo['addtime']
-    delinfo['sampleStatus'] = '已退项'
-    delsample = delSampleInfo(**delinfo)
-    db.session.add(delsample)
-    db.session.delete(info)
-    db.session.commit()
-    return jsonify({'msg': 'success', 'code': 200})
+    try:
+        info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==sampleBarcode, SampleInfo.projectName==projectName)).first()
+        delinfo = info.to_json()
+        delinfo['delOperator'] = g.username
+        del delinfo['id']
+        del delinfo['addtime']
+        delinfo['sampleStatus'] = '已退项'
+        delsample = delSampleInfo(**delinfo)
+        db.session.add(delsample)
+        db.session.delete(info)
+        db.session.commit()
+        return jsonify({'msg': 'success', 'code': 200})
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg':'fail!', 'code':500})
 
 ### 生成样本唯一性ID
 @sample.post('/generatePatientID')
@@ -235,73 +240,78 @@ def generatePatientID():
     currentBarcode, currentproject = data['currentBarcode'].split('+')
     selectBarcode, selectproject = data['selectBarcode'].split('+')
     dupSite = data['dupSite']
-    l_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==selectBarcode, SampleInfo.projectName==selectproject)).first()
-    c_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==currentBarcode, SampleInfo.projectName==currentproject)).first()
-    projectBarcode = c_sinfo.projectBarcode
-    experID = addexperimentID.query.all()
-    experID_num = 0
-    if not experID:
-        experID_num = 1
-    else:
-        experIDs = experID[-1].experimentIDs
-        if today in experIDs:
-            experID_num = int(experIDs[-4:]) + 1
-        else:
+    try:
+        l_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==selectBarcode, SampleInfo.projectName==selectproject)).first()
+        c_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==currentBarcode, SampleInfo.projectName==currentproject)).first()
+        projectBarcode = c_sinfo.projectBarcode
+        experID = addexperimentID.query.all()
+        experID_num = 0
+        if not experID:
             experID_num = 1
-    diagnosisPeriod_list = defaultdict(lambda: defaultdict(str))
-    if currentBarcode == selectBarcode:
-        IDinfo = addPatientID.query.all()
-        if not IDinfo:
-            PatientIDs = 'lym000001'
         else:
-            PatientIDs = IDinfo[-1].patientIDs
-            PatientIDs = str(int(PatientIDs[3:]) + 1).zfill(6)
-            PatientIDs = 'lym' + PatientIDs
-        PatientID = PatientIDs + '_0'
-        diagnosisPeriods = f'{project2site[projectBarcode]}_0'
-        diagnosisPeriod_list['time0'][project2site[projectBarcode]] = diagnosisPeriods
-        db.session.add(addPatientID(patientIDs=PatientIDs))
-    else:
-        if c_sinfo.projectBarcode == 'KSB001' or c_sinfo.projectBarcode == 'KSB002':
-            PatientIDs,num = l_sinfo.patientID.split('_')
-            PatientID = f'{PatientIDs}_{int(num) + 1}'
+            experIDs = experID[-1].experimentIDs
+            if today in experIDs:
+                experID_num = int(experIDs[-4:]) + 1
+            else:
+                experID_num = 1
+        diagnosisPeriod_list = defaultdict(lambda: defaultdict(str))
+        if currentBarcode == selectBarcode:
+            IDinfo = addPatientID.query.all()
+            if not IDinfo:
+                PatientIDs = 'lym000001'
+            else:
+                PatientIDs = IDinfo[-1].patientIDs
+                PatientIDs = str(int(PatientIDs[3:]) + 1).zfill(6)
+                PatientIDs = 'lym' + PatientIDs
+            PatientID = PatientIDs + '_0'
             diagnosisPeriods = f'{project2site[projectBarcode]}_0'
             diagnosisPeriod_list['time0'][project2site[projectBarcode]] = diagnosisPeriods
+            db.session.add(addPatientID(patientIDs=PatientIDs))
         else:
-            pnum = l_sinfo.diagnosisPeriod.split('_')[1]
-            PatientID = l_sinfo.patientID
-            diagnosisPeriods = f'{project2site[projectBarcode]}_{int(pnum) + 1}'
-            diagnosisPeriod_list['MRD'][project2site[projectBarcode]] = diagnosisPeriods
-    c_sinfo.update(patientID=PatientID, diagnosisPeriod=diagnosisPeriods)
-    for i in diagnosisPeriod_list:
-        for k,v in diagnosisPeriod_list[i].items():
-            if k == 'B':
-                for s in ['IGH','IGDH','IGK','IGL']:
-                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
+            if c_sinfo.projectBarcode == 'KSB001' or c_sinfo.projectBarcode == 'KSB002':
+                PatientIDs,num = l_sinfo.patientID.split('_')
+                PatientID = f'{PatientIDs}_{int(num) + 1}'
+                diagnosisPeriods = f'{project2site[projectBarcode]}_0'
+                diagnosisPeriod_list['time0'][project2site[projectBarcode]] = diagnosisPeriods
+            else:
+                pnum = l_sinfo.diagnosisPeriod.split('_')[1]
+                PatientID = l_sinfo.patientID
+                diagnosisPeriods = f'{project2site[projectBarcode]}_{int(pnum) + 1}'
+                diagnosisPeriod_list['MRD'][project2site[projectBarcode]] = diagnosisPeriods
+        c_sinfo.update(patientID=PatientID, diagnosisPeriod=diagnosisPeriods)
+        for i in diagnosisPeriod_list:
+            for k,v in diagnosisPeriod_list[i].items():
+                if k == 'B':
+                    for s in ['IGH','IGDH','IGK','IGL']:
+                        experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
+                        db.session.add(experimenttohos(**experinfo))
+                        db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
+                        experID_num += 1
+                elif k == 'T':
+                    for s in ['TRBVJ','TRBDJ','TRD','TRG']:
+                        experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
+                        db.session.add(experimenttohos(**experinfo))
+                        db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
+                        experID_num += 1
+        if dupSite != []:
+            for i in dupSite:
+                if i in ['IGH','IGDH','IGK','IGL']:
+                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'B_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
                     db.session.add(experimenttohos(**experinfo))
                     db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                     experID_num += 1
-            elif k == 'T':
-                for s in ['TRBVJ','TRBDJ','TRD','TRG']:
-                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
+                elif i in ['TRBVJ','TRBDJ','TRD','TRG']:
+                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'T_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
                     db.session.add(experimenttohos(**experinfo))
                     db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                     experID_num += 1
-    if dupSite != []:
-        for i in dupSite:
-            if i in ['IGH','IGDH','IGK','IGL']:
-                experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'B_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
-                db.session.add(experimenttohos(**experinfo))
-                db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
-                experID_num += 1
-            elif i in ['TRBVJ','TRBDJ','TRD','TRG']:
-                experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'T_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
-                db.session.add(experimenttohos(**experinfo))
-                db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
-                experID_num += 1
-    db.session.commit()
-    c_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==currentBarcode, SampleInfo.projectName==currentproject)).first()
-    return jsonify({'msg': 'success', 'code': 200, 'data': [c_sinfo.to_json()]})
+        db.session.commit()
+        c_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==currentBarcode, SampleInfo.projectName==currentproject)).first()
+        return jsonify({'msg': 'success', 'code': 200, 'data': [c_sinfo.to_json()]})
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg':'fail!', 'code':500})
 
 ### 退项
 @sample.post('/exitproject')

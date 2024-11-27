@@ -14,34 +14,35 @@ expertohos = Blueprint('expertohos', __name__)
 def inputexperinfo():
     today = datetime.now().strftime('%Y%m%d')
     data = request.json['data']
-    # try:
-    for i in data:
-        qcinfo = qctohos.query.filter(qctohos.qcDate == i['qcDate']).first()
-        if not qcinfo:
-            return jsonify({'msg': f'没有 {i["qcDate"]} 批次的内参信息，请先导入！', 'code': 204})
-        if 'experimentID' not in i:
-            experID = addexperimentID.query.all()
-            experID_num = 0
-            if not experID:
-                experID_num = 1
-            else:
-                experIDs = experID[-1].experimentIDs
-                if today in experIDs:
-                    experID_num = int(experIDs[-4:]) + 1
-                else:
+    try:
+        for i in data:
+            qcinfo = qctohos.query.filter(qctohos.qcDate == i['qcDate']).first()
+            if not qcinfo:
+                return jsonify({'msg': f'没有 {i["qcDate"]} 批次的内参信息，请先导入！', 'code': 204})
+            if 'experimentID' not in i:
+                experID = addexperimentID.query.all()
+                experID_num = 0
+                if not experID:
                     experID_num = 1
-            i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
-            exp = experimenttohos(**i)
-            db.session.add(exp)
-        else:
-            exp = experimenttohos.query.filter(experimenttohos.experimentID==i['experimentID']).first()
-            if exp:
-                exp.update(**i)
-    db.session.commit()
-    return jsonify({'msg': 'success', 'code': 200})
-    # except Exception as e:
-    #     print(e)
-    #     return jsonify({'msg': 'fail', 'code': 500})
+                else:
+                    experIDs = experID[-1].experimentIDs
+                    if today in experIDs:
+                        experID_num = int(experIDs[-4:]) + 1
+                    else:
+                        experID_num = 1
+                i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
+                exp = experimenttohos(**i)
+                db.session.add(exp)
+            else:
+                exp = experimenttohos.query.filter(experimenttohos.experimentID==i['experimentID']).first()
+                if exp:
+                    exp.update(**i)
+        db.session.commit()
+        return jsonify({'msg': 'success', 'code': 200})
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg': 'fail', 'code': 500})
 
 @expertohos.post('/searchexperinfo')
 @jwt_required()
@@ -87,19 +88,20 @@ def searchexperinfo():
 @jwt_required()
 def inputqcinfo():
     data = request.json['data']
-    # try:
-    for i in data:
-        qcinfo = qctohos.query.filter(qctohos.qcDate==i['qcDate']).first()
-        if qcinfo:
-            qcinfo.update(**i)
-        else:
-            qcinfo = qctohos(**i)
-            db.session.add(qcinfo)
-    db.session.commit()
-    return jsonify({'msg': 'success', 'code': 200})
-    # except Exception as e:
-    #     print(e)
-    #     return jsonify({'msg': 'fail', 'code': 500})
+    try:
+        for i in data:
+            qcinfo = qctohos.query.filter(qctohos.qcDate==i['qcDate']).first()
+            if qcinfo:
+                qcinfo.update(**i)
+            else:
+                qcinfo = qctohos(**i)
+                db.session.add(qcinfo)
+        db.session.commit()
+        return jsonify({'msg': 'success', 'code': 200})
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg': 'fail', 'code': 500})
 
 @expertohos.post('/searchqcinfo')
 @jwt_required()
