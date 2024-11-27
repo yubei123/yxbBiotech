@@ -1,0 +1,8 @@
+__pycache__/
+venv/
+test/
+**/__pycache__/
+**/__init__.c
+build/
+requirements.txt
+**/*cpython-310-x86_64-linux-gnu.so
