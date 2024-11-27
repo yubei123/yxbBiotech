@@ -20,12 +20,14 @@ def uploadsampleinfo():
     tag = request.json['tag']
     print(data)
     try:
+        ## 对样本信息进行编辑
         if tag == 'edit':
             i = data[0]
             i['sampleCollectionTime'] = changeUTCtoLocal(i['sampleCollectionTime']) if i['sampleCollectionTime'] != '' else None
             i['sampleReceiveTime'] = changeUTCtoLocal(i['sampleReceiveTime']) if i['sampleReceiveTime'] != '' else None
             sampleinfo = i
             pendinginfo = pendingSample.query.filter(pendingSample.sampleBarcode==i['sampleBarcode']).first()
+            ## 查询样本是否在待定样本数据表中，在的话如果修改项目类型则将该样本信息进行更新存至样本信息表中，同时删除待定样本数据表中该样本的信息，样本不在待定表中则对样本信息正常更新
             if pendinginfo:
                 if i['projectName'] == ['待定']:
                     pendinginfo.update(**i)
@@ -46,6 +48,7 @@ def uploadsampleinfo():
                 info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==i['projectName'])).first()
                 if info:
                     info.update(**i)
+        ## 单样和批量录入，如果项目类型为待定则将样本信息保存至待定表中，其它项目类型生成对应的信息
         else:
             for i in data:
                 i['sampleCollectionTime'] = changeUTCtoLocal(i['sampleCollectionTime']) if i['sampleCollectionTime'] != '' else None
@@ -241,9 +244,11 @@ def generatePatientID():
     selectBarcode, selectproject = data['selectBarcode'].split('+')
     dupSite = data['dupSite']
     try:
+        ## 搜索当前样本条码和上一次样本条码及对应项目类型的信息
         l_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==selectBarcode, SampleInfo.projectName==selectproject)).first()
         c_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==currentBarcode, SampleInfo.projectName==currentproject)).first()
         projectBarcode = c_sinfo.projectBarcode
+        ## 起始实验编号判断
         experID = addexperimentID.query.all()
         experID_num = 0
         if not experID:
@@ -255,6 +260,7 @@ def generatePatientID():
             else:
                 experID_num = 1
         diagnosisPeriod_list = defaultdict(lambda: defaultdict(str))
+        ## 如果当前样本条码和上一次样本条码一致，则为初诊样本
         if currentBarcode == selectBarcode:
             IDinfo = addPatientID.query.all()
             if not IDinfo:
@@ -268,31 +274,38 @@ def generatePatientID():
             diagnosisPeriod_list['time0'][project2site[projectBarcode]] = diagnosisPeriods
             db.session.add(addPatientID(patientIDs=PatientIDs))
         else:
+            ## 如果当前样本条码和上一次样本条码不一致
+            ## 项目类型为克隆鉴定，则为初诊样本
             if c_sinfo.projectBarcode == 'KSB001' or c_sinfo.projectBarcode == 'KSB002':
                 PatientIDs,num = l_sinfo.patientID.split('_')
                 PatientID = f'{PatientIDs}_{int(num) + 1}'
                 diagnosisPeriods = f'{project2site[projectBarcode]}_0'
                 diagnosisPeriod_list['time0'][project2site[projectBarcode]] = diagnosisPeriods
+            ## 项目类型为MRD监测，则为MRD样本
             else:
                 pnum = l_sinfo.diagnosisPeriod.split('_')[1]
                 PatientID = l_sinfo.patientID
                 diagnosisPeriods = f'{project2site[projectBarcode]}_{int(pnum) + 1}'
                 diagnosisPeriod_list['MRD'][project2site[projectBarcode]] = diagnosisPeriods
+        ##  样本信息表中更新唯一性编码和诊断时期
         c_sinfo.update(patientID=PatientID, diagnosisPeriod=diagnosisPeriods)
         for i in diagnosisPeriod_list:
             for k,v in diagnosisPeriod_list[i].items():
+                ## 如果项目检测位点为BCR，则生成BCR四条链的实验信息，初诊DNA投入量为100ng，MRD DNA投入量不设置默认值
                 if k == 'B':
                     for s in ['IGH','IGDH','IGK','IGL']:
                         experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
                         db.session.add(experimenttohos(**experinfo))
                         db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                         experID_num += 1
+                ## 如果项目检测位点为TCR，则生成TCR四条链的实验信息，初诊DNA投入量为100ng，MRD DNA投入量不设置默认值
                 elif k == 'T':
                     for s in ['TRBVJ','TRBDJ','TRD','TRG']:
                         experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
                         db.session.add(experimenttohos(**experinfo))
                         db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                         experID_num += 1
+        ## 判断是否存在重复文库位点，生成对应的实验信息
         if dupSite != []:
             for i in dupSite:
                 if i in ['IGH','IGDH','IGK','IGL']:
@@ -306,6 +319,7 @@ def generatePatientID():
                     db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                     experID_num += 1
         db.session.commit()
+        ## 重新获取当前样本的信息返回给前端进行展示
         c_sinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==currentBarcode, SampleInfo.projectName==currentproject)).first()
         return jsonify({'msg': 'success', 'code': 200, 'data': [c_sinfo.to_json()]})
     except Exception as e:

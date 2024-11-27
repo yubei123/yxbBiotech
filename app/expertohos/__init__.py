@@ -15,10 +15,12 @@ def inputexperinfo():
     today = datetime.now().strftime('%Y%m%d')
     data = request.json['data']
     try:
+        ## 导入实验信息，判断是否存在对应的内参批次信息，不存在不允许更新
         for i in data:
             qcinfo = qctohos.query.filter(qctohos.qcDate == i['qcDate']).first()
             if not qcinfo:
                 return jsonify({'msg': f'没有 {i["qcDate"]} 批次的内参信息，请先导入！', 'code': 204})
+            ## 如果导入的实验信息中不存在实验编号，则重新生成新的实验编号并添加新的实验信息
             if 'experimentID' not in i:
                 experID = addexperimentID.query.all()
                 experID_num = 0
@@ -33,6 +35,7 @@ def inputexperinfo():
                 i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
                 exp = experimenttohos(**i)
                 db.session.add(exp)
+            ## 如果导入的实验信息中存在实验编号，则根据对应实验编号对实验信息进行更新
             else:
                 exp = experimenttohos.query.filter(experimenttohos.experimentID==i['experimentID']).first()
                 if exp:
