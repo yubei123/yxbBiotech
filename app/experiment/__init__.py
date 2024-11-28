@@ -114,7 +114,7 @@ def searchExtract():
     if data['purifyStatus'] != '':
         query = query.filter(extractANDpurify.purifyStatus == data['purifyStatus'])
         n += 1
-    info = query.paginate(page=data['pagenum'], per_page=5)
+    info = query.paginate(page=data['pagenum'], per_page=data['pagesize'])
     if not info or n == 0:
         return jsonify({'msg': 'no data', 'code': 204})
     else:

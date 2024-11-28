@@ -21,6 +21,8 @@ def uploadsampleinfo():
     print(data)
     try:
         ## 对样本信息进行编辑
+        barcode_project = defaultdict(list)
+        pendingsample_project = {}
         if tag == 'edit':
             i = data[0]
             i['sampleCollectionTime'] = changeUTCtoLocal(i['sampleCollectionTime']) if i['sampleCollectionTime'] != '' else None
@@ -31,12 +33,12 @@ def uploadsampleinfo():
             if pendinginfo:
                 if i['projectName'] == ['待定']:
                     pendinginfo.update(**i)
+                    pendingsample_project[i['sampleBarcode']] = '待定'
                 else:
                     for pb in i['projectName']:
-                        if pb == '待定':
-                            continue
                         sampleinfo['projectName'] = pb
                         sampleinfo['projectBarcode'] = projectName2Barcode[pb]
+                        barcode_project[i['sampleBarcode']].append(sampleinfo['projectName'])
                         info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==pb)).first()
                         if info:
                             info.update(**i)
@@ -46,6 +48,7 @@ def uploadsampleinfo():
                     db.session.delete(pendinginfo)
             else:
                 info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==i['projectName'])).first()
+                barcode_project[i['sampleBarcode']].append(sampleinfo['projectName'])
                 if info:
                     info.update(**i)
         ## 单样和批量录入，如果项目类型为待定则将样本信息保存至待定表中，其它项目类型生成对应的信息
@@ -58,6 +61,7 @@ def uploadsampleinfo():
                     sampleinfo['projectName'] = '待定'
                     sampleinfo['projectBarcode'] = '待定'
                     sampleinfo['sampleStatus'] = '已收样'
+                    pendingsample_project[i['sampleBarcode']] = '待定'
                     info = pendingSample.query.filter(and_(pendingSample.sampleBarcode==i['sampleBarcode'], pendingSample.projectName==i['projectName'])).first()
                     if info:
                         info.update(**i)
@@ -69,17 +73,27 @@ def uploadsampleinfo():
                         info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==i['sampleBarcode'], SampleInfo.projectName==pb)).first()
                         sampleinfo['projectName'] = pb
                         sampleinfo['projectBarcode'] = projectName2Barcode[pb]
+                        barcode_project[i['sampleBarcode']].append(sampleinfo['projectName'])
                         if info:
                             info.update(**i)
                         else:
                             sample = SampleInfo(**i)
                             db.session.add(sample)
         db.session.commit()
+        info_list = []
+        for k,v in barcode_project.items():
+            for i in v:
+                info = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==k, SampleInfo.projectName==i)).first()
+                info_list.append(info.to_json())
+        for k,v in pendingsample_project.items():
+            info = pendingSample.query.filter(and_(pendingSample.sampleBarcode==k, pendingSample.projectName==v)).first()
+            info_list.append(info.to_json())
+        print(info_list)
+        return jsonify({'msg':'success!', 'code':200, 'data':info_list})
     except Exception as e:
         print(e)
         db.session.rollback()
         return jsonify({'msg':'fail!', 'code':500})
-    return jsonify({'msg':'success!', 'code':200})
 
 ### lis系统获取样本信息api
 @sample.post('/getsampleinfo')
@@ -182,7 +196,7 @@ def searchsampleinfo():
         etime = addOneday(data["addtime"])
         query = query.filter(between(SampleInfo.addtime, stime, etime))
         n += 1
-    info = query.order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=10)
+    info = query.order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
     a = [i.to_json() for i in info]
     if not a or n == 0:
         return jsonify({'msg': 'no data', 'code': 204})

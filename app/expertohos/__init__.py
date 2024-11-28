@@ -14,34 +14,52 @@ expertohos = Blueprint('expertohos', __name__)
 def inputexperinfo():
     today = datetime.now().strftime('%Y%m%d')
     data = request.json['data']
+    # print(data)
     try:
+        experID = addexperimentID.query.all()
+        experID_num = 0
+        if not experID:
+            experID_num = 1
+        else:
+            experIDs = experID[-1].experimentIDs
+            if today in experIDs:
+                experID_num = int(experIDs[-4:]) + 1
+            else:
+                experID_num = 1
+        experID_list = []
         ## 导入实验信息，判断是否存在对应的内参批次信息，不存在不允许更新
         for i in data:
             qcinfo = qctohos.query.filter(qctohos.qcDate == i['qcDate']).first()
-            if not qcinfo:
+            if not qcinfo and '空白' not in i['patientName']:
                 return jsonify({'msg': f'没有 {i["qcDate"]} 批次的内参信息，请先导入！', 'code': 204})
             ## 如果导入的实验信息中不存在实验编号，则重新生成新的实验编号并添加新的实验信息
             if 'experimentID' not in i:
-                experID = addexperimentID.query.all()
-                experID_num = 0
-                if not experID:
-                    experID_num = 1
-                else:
-                    experIDs = experID[-1].experimentIDs
-                    if today in experIDs:
-                        experID_num = int(experIDs[-4:]) + 1
-                    else:
-                        experID_num = 1
                 i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
+                experID_list.append(i['experimentID'])
                 exp = experimenttohos(**i)
+                db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
+                experID_num += 1
                 db.session.add(exp)
             ## 如果导入的实验信息中存在实验编号，则根据对应实验编号对实验信息进行更新
             else:
-                exp = experimenttohos.query.filter(experimenttohos.experimentID==i['experimentID']).first()
-                if exp:
-                    exp.update(**i)
+                if i['experimentID'] == '':
+                    i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
+                    experID_list.append(i['experimentID'])
+                    exp = experimenttohos(**i)
+                    db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
+                    experID_num += 1
+                    db.session.add(exp)
+                else:
+                    exp = experimenttohos.query.filter(experimenttohos.experimentID==i['experimentID']).first()
+                    experID_list.append(i['experimentID'])
+                    if exp:
+                        exp.update(**i)
         db.session.commit()
-        return jsonify({'msg': 'success', 'code': 200})
+        experinfo_list = []
+        for i in experID_list:
+            experinfo = experimenttohos.query.filter(experimenttohos.experimentID == i).first()
+            experinfo_list.append(experinfo.to_json())
+        return jsonify({'msg': 'success', 'code': 200, 'data':experinfo_list})
     except Exception as e:
         print(e)
         db.session.rollback()
@@ -76,7 +94,7 @@ def searchexperinfo():
         etime = addOneday(data["addtime"])
         query = query.filter(between(experimenttohos.addtime, stime, etime))
         n += 1
-    info = query.paginate(page=data['pagenum'], per_page=5)
+    info = query.paginate(page=data['pagenum'], per_page=data['pagesize'])
     a = [i.to_json() for i in info]
     if not a or n == 0:
         return jsonify({'msg': 'no data', 'code': 204})
@@ -92,7 +110,9 @@ def searchexperinfo():
 def inputqcinfo():
     data = request.json['data']
     try:
+        qcdate_list = []
         for i in data:
+            qcdate_list.append(i['qcDate'])
             qcinfo = qctohos.query.filter(qctohos.qcDate==i['qcDate']).first()
             if qcinfo:
                 qcinfo.update(**i)
@@ -100,12 +120,27 @@ def inputqcinfo():
                 qcinfo = qctohos(**i)
                 db.session.add(qcinfo)
         db.session.commit()
-        return jsonify({'msg': 'success', 'code': 200})
+        qcinfo_list = []
+        for i in qcdate_list:
+            info = qctohos.query.filter(qctohos.qcDate==i).first()
+            qcinfo_list.append(info.to_json())
+        return jsonify({'msg': 'success', 'code': 200, 'data':qcinfo_list})
     except Exception as e:
         print(e)
         db.session.rollback()
         return jsonify({'msg': 'fail', 'code': 500})
 
+@expertohos.post('/searchallqc')
+@jwt_required()
+def searchallqc():
+    data = request.get_json()
+    qcinfo = qctohos.query.order_by(qctohos.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
+    res = []
+    for i in qcinfo:
+        res.append(i.to_json())
+    return jsonify({'msg': 'success', 'code': 200, 'data': {'pages': qcinfo.pages, 'data':res}})
+
+## 搜索指定内参批次
 @expertohos.post('/searchqcinfo')
 @jwt_required()
 def searchqcinfo():
@@ -113,9 +148,9 @@ def searchqcinfo():
     n = 0
     query = qctohos.query
     if data['qcDate'] != '':
-        query = query.filter(qctohos.qcDate == data['qcDate'])
+        query = query.filter(qctohos.qcDate.contains(data['qcDate']))
         n += 1
-    info = query.paginate(page=data['pagenum'], per_page=5)
+    info = query.paginate(page=data['pagenum'], per_page=data['pagesize'])
     a = [i.to_json() for i in info]
     if not a or n == 0:
         return jsonify({'msg': 'no data', 'code': 204})
