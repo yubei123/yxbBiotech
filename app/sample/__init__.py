@@ -290,7 +290,9 @@ def generatePatientID():
         else:
             ## 如果当前样本条码和上一次样本条码不一致
             ## 项目类型为克隆鉴定，则为初诊样本
-            if c_sinfo.projectBarcode == 'KSB001' or c_sinfo.projectBarcode == 'KSB002':
+            if l_sinfo.patientID == None or l_sinfo.patientID == '':
+                return jsonify({'msg':f'选择的上一次样本条码不存在唯一性编码和诊断时期，请核实！', 'code':201})
+            if '克隆鉴定' in c_sinfo.projectName:
                 PatientIDs,num = l_sinfo.patientID.split('_')
                 PatientID = f'{PatientIDs}_{int(num) + 1}'
                 diagnosisPeriods = f'{project2site[projectBarcode]}_0'
