@@ -13,7 +13,7 @@ db = SQLAlchemy(app)
 class SampleInfo(db.Model):
     __tablename__ = 'sampleinfo'
     id = db.Column(db.Integer, primary_key=True)
-    sampleBarcode = db.Column(db.String(50), unique=True, index=True)
+    sampleBarcode = db.Column(db.String(50), index=True)
     projectBarcode = db.Column(db.String(20), index=True)
     projectName = db.Column(db.String(50), index=True)
     patientName = db.Column(db.String(10), index=True)

@@ -155,6 +155,7 @@ def getsampleinfo():
 def searchsampleinfo():
     data = request.get_json()
     n = 0
+    print(data)
     query = SampleInfo.query
     if data['sampleBarcode'] != '':
         query = query.filter(SampleInfo.sampleBarcode == data['sampleBarcode'])
@@ -197,6 +198,7 @@ def searchsampleinfo():
         query = query.filter(between(SampleInfo.addtime, stime, etime))
         n += 1
     info = query.order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
+    print(n)
     a = [i.to_json() for i in info]
     if not a or n == 0:
         return jsonify({'msg': 'no data', 'code': 204})
