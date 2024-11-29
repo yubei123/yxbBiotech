@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-from glob import glob
+import sys
 
 app = Flask(__name__)
 app.config.from_pyfile('/data/yubei/Biotech/config.py')
@@ -21,7 +21,16 @@ class pipelineMonitor(db.Model):
     remark = db.Column(db.Text)
     addtime = db.Column(db.DateTime, default=datetime.now)
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
 if __name__ == '__main__':
     with app.app_context():
-        db.drop_all()
-        db.create_all()
+        libID = sys.argv[1]
+        info = pipelineMonitor.query.filter(pipelineMonitor.libID == libID).first()
+        if info:
+            info.update(fpMonitor='已完成')
+            db.session.commit()
+        else:
+            print(f'{libID} 文库不存在，请核实！')
