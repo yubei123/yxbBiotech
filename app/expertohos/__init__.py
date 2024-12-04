@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy import between, or_, and_
 from datetime import datetime
 from app.tools import generateLibID
+from app.tasks import sampleMonitor
 
 expertohos = Blueprint('expertohos', __name__)
 
@@ -65,6 +66,7 @@ def inputexperinfo():
         if sampleinfo:
             sampleinfo.update(sampleStatus='已实验')
     for i in libID_list:
+        sampleMonitor.delay(i)
         libID = pipelineMonitor.query.filter(pipelineMonitor.libID == i).first()
         if libID:
             libID.update(libID=i)
