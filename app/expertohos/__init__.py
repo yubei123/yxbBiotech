@@ -7,6 +7,7 @@ from sqlalchemy import between, or_, and_
 from datetime import datetime
 from app.tools import generateLibID
 from app.tasks import sampleMonitor
+from collections import defaultdict
 
 expertohos = Blueprint('expertohos', __name__)
 
@@ -191,3 +192,22 @@ def searchaddexperinfo():
         for i in experinfo:
             res.append(i.to_json())
         return jsonify({'msg': 'success', 'code': 200, 'data': res})
+    
+### 待补充实验信息
+@expertohos.post('/getexperinfo')
+def getexperinfo():
+    libID = request.get_json()['libID']
+    chainsinfo = defaultdict(dict)
+    labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = libID.split('/')[-1].split('-')
+    experinfo = experimenttohos.query.filter(and_(experimenttohos.labDate == labdate, experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.barcodeGroup == barcodeGroup)).all()
+    if not experinfo:
+        return jsonify({'msg': 'no data', 'code': 204})
+    else:
+        for i in experinfo:
+            qcinfo = qctohos.query.filter(qctohos.qcDate == i.qcDate).first()
+            qcinfo = qcinfo.to_json()
+            i = i.to_json()
+            chainsinfo[i['pcrSite']]['inputDNA'] = i['inputNG']
+            chainsinfo[i['pcrSite']]['qc'] = qcinfo[i['pcrSite'].lower()]
+        print(chainsinfo)
+        return jsonify({'msg': 'success', 'code': 200, 'data': chainsinfo})

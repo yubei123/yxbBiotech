@@ -10,6 +10,13 @@ app = Flask(__name__)
 app.config.from_pyfile('/data/yubei/Biotech/config.py')
 db = SQLAlchemy(app)
 
+def serialize(self):
+    json = {}
+    for i in self.__table__.c:
+        key = str(i.key)
+        json[key] = getattr(self, key)
+    return json
+
 class IGHtop15(db.Model):
     __tablename__ = 'IGHtop15'
     id = db.Column(db.Integer, primary_key=True)
@@ -28,6 +35,13 @@ class IGHtop15(db.Model):
     adjustedCellRatio = db.Column(db.Float)
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class IGDHtop15(db.Model):
     __tablename__ = 'IGDHtop15'
@@ -48,6 +62,13 @@ class IGDHtop15(db.Model):
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
+
 class IGKtop15(db.Model):
     __tablename__ = 'IGKtop15'
     id = db.Column(db.Integer, primary_key=True)
@@ -67,6 +88,13 @@ class IGKtop15(db.Model):
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
+
 class KDEtop15(db.Model):
     __tablename__ = 'KDEtop15'
     id = db.Column(db.Integer, primary_key=True)
@@ -85,6 +113,13 @@ class KDEtop15(db.Model):
     adjustedCellRatio = db.Column(db.Float)
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 
 class IGLtop15(db.Model):
@@ -106,6 +141,13 @@ class IGLtop15(db.Model):
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
+
 class TRBVJtop15(db.Model):
     __tablename__ = 'TRBVJtop15'
     id = db.Column(db.Integer, primary_key=True)
@@ -124,6 +166,13 @@ class TRBVJtop15(db.Model):
     adjustedCellRatio = db.Column(db.Float)
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class TRBDJtop15(db.Model):
     __tablename__ = 'TRBDJtop15'
@@ -144,6 +193,13 @@ class TRBDJtop15(db.Model):
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
+
 class TRDVJtop15(db.Model):
     __tablename__ = 'TRDVJtop15'
     id = db.Column(db.Integer, primary_key=True)
@@ -162,6 +218,13 @@ class TRDVJtop15(db.Model):
     adjustedCellRatio = db.Column(db.Float)
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class TRDDJtop15(db.Model):
     __tablename__ = 'TRDDJtop15'
@@ -182,6 +245,13 @@ class TRDDJtop15(db.Model):
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
+
 class TRGtop15(db.Model):
     __tablename__ = 'TRGtop15'
     id = db.Column(db.Integer, primary_key=True)
@@ -201,7 +271,9 @@ class TRGtop15(db.Model):
     markerYN = db.Column(db.String(10))
     addtime = db.Column(db.DateTime, default=datetime.now)
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)

@@ -10,3 +10,5 @@ testdata/
 testdata/**
 **.csv
 **.txt
+test**
+.gitignore

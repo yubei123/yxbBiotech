@@ -35,10 +35,10 @@ def sampleMonitor(libID):
                 re = onProcessPipline.delay(f'touch 1.txt')
                 pipeinfo.update(fqMonitor='已存在')
                 print(re)
-            break
             db.session.commit()
+            break
         else:
             print('文件不存在')
-            time.sleep(5)
+            time.sleep(10)
 
 
