@@ -67,6 +67,7 @@ def inputexperinfo():
         if sampleinfo:
             sampleinfo.update(sampleStatus='已实验')
     for i in libID_list:
+        # print(i)
         sampleMonitor.delay(i)
         libID = pipelineMonitor.query.filter(pipelineMonitor.libID == i).first()
         if libID:
@@ -209,5 +210,4 @@ def getexperinfo():
             i = i.to_json()
             chainsinfo[i['pcrSite']]['inputDNA'] = i['inputNG']
             chainsinfo[i['pcrSite']]['qc'] = qcinfo[i['pcrSite'].lower()]
-        print(chainsinfo)
         return jsonify({'msg': 'success', 'code': 200, 'data': chainsinfo})
