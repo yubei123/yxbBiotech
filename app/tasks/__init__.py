@@ -29,12 +29,12 @@ def onProcessPipline(sh):
 @celery_app.task
 def sampleMonitor(libID):
     while True:
-        if os.path.exists(f'/data/yubei/Biotech/testdata/{libID}_R1.fastq.gz') and os.path.exists(f'/data/yubei/Biotech/testdata/{libID}_R2.fastq.gz'):
+        if os.path.exists(f'/data/1-test-zrz/00_rawdata/20241204/{libID}_R1.fastq.gz') and os.path.exists(f'/data/1-test-zrz/00_rawdata/20241204/{libID}_R2.fastq.gz'):
             with apps.app_context():
                 pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID == libID).first()
                 print(pipeinfo.fqMonitor)
                 if pipeinfo.fqMonitor == '不存在':
-                    onProcessPipline.delay(f'touch 1.txt')
+                    onProcessPipline.delay(f'echo xiaobei123 |sudo -S /opt/miniconda/bin/python /data/1-test-zrz/1-unix-1204.cpython-37.pyc {libID}')
                     pipeinfo.update(fqMonitor='已存在')
                     db.session.commit()
                 else:

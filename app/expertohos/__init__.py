@@ -8,6 +8,7 @@ from datetime import datetime
 from app.tools import generateLibID
 from app.tasks import sampleMonitor
 from collections import defaultdict
+from app.tools import getCloneInfo
 
 expertohos = Blueprint('expertohos', __name__)
 
@@ -200,6 +201,11 @@ def getexperinfo():
     libID = request.get_json()['libID']
     chainsinfo = defaultdict(dict)
     labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = libID.split('/')[-1].split('-')
+    sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
+    if not sampleinfo:
+        return jsonify({'msg': 'no data', 'code': 204})
+    else:
+        chainsinfo['patientID'] = sampleinfo.patientID
     experinfo = experimenttohos.query.filter(and_(experimenttohos.labDate == labdate, experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.barcodeGroup == barcodeGroup)).all()
     if not experinfo:
         return jsonify({'msg': 'no data', 'code': 204})
@@ -210,4 +216,7 @@ def getexperinfo():
             i = i.to_json()
             chainsinfo[i['pcrSite']]['inputDNA'] = i['inputNG']
             chainsinfo[i['pcrSite']]['qc'] = qcinfo[i['pcrSite'].lower()]
-        return jsonify({'msg': 'success', 'code': 200, 'data': chainsinfo})
+    clonesInfo = getCloneInfo(libID)
+    chainsinfo['clonesInfo'] = clonesInfo
+
+    return jsonify({'msg': 'success', 'code': 200, 'data': chainsinfo})
