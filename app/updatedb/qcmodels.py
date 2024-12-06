@@ -6,6 +6,13 @@ app = Flask(__name__)
 app.config.from_pyfile('/data/yubei/Biotech/config.py')
 db = SQLAlchemy(app)
 
+def serialize(self):
+    json = {}
+    for i in self.__table__.c:
+        key = str(i.key)
+        json[key] = getattr(self, key)
+    return json
+
 class IGHqc(db.Model):
     __tablename__ = 'IGHqc'
     id = db.Column(db.Integer, primary_key=True)
@@ -49,6 +56,13 @@ class IGHqc(db.Model):
     qc21 = db.Column(db.Integer)
     qc22 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
+    
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class IGDHqc(db.Model):
     __tablename__ = 'IGDHqc'
@@ -89,6 +103,13 @@ class IGDHqc(db.Model):
     qc17 = db.Column(db.Integer)
     qc18 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
+    
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class IGKqc(db.Model):
     __tablename__ = 'IGKqc'
@@ -122,6 +143,13 @@ class IGKqc(db.Model):
     qc10 = db.Column(db.Integer)
     qc11 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
+    
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class IGLqc(db.Model):
     __tablename__ = 'IGLqc'
@@ -159,6 +187,13 @@ class IGLqc(db.Model):
     qc14 = db.Column(db.Integer)
     qc15 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
+    
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class TRBVJqc(db.Model):
     __tablename__ = 'TRBVJqc'
@@ -219,6 +254,13 @@ class TRBVJqc(db.Model):
     qc37 = db.Column(db.Integer)
     qc38 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
+    
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class TRBDJqc(db.Model):
     __tablename__ = 'TRBDJqc'
@@ -264,6 +306,13 @@ class TRBDJqc(db.Model):
     qc22 = db.Column(db.Integer)
     qc23 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
+    
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
 
 class TRDqc(db.Model):
     __tablename__ = 'TRDqc'
@@ -335,8 +384,31 @@ class TRGqc(db.Model):
     qc17 = db.Column(db.Integer)
     qc18 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
+    
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
+    def to_json(self):
+        return serialize(self)
+
+class qctohos(db.Model):
+    __tablename__ = 'qctohos'
+    id = db.Column(db.Integer, primary_key=True)
+    qcDate = db.Column(db.String(8), index=True)
+    igh = db.Column(db.String(8))
+    igdh = db.Column(db.String(8))
+    igk = db.Column(db.String(8))
+    igl = db.Column(db.String(8))
+    trbvj = db.Column(db.String(8))
+    trbdj = db.Column(db.String(8))
+    trg = db.Column(db.String(8))
+    trd = db.Column(db.String(8))
+    addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+    
+    def to_json(self):
+        return serialize(self)

@@ -194,7 +194,7 @@ def searchaddexperinfo():
             res.append(i.to_json())
         return jsonify({'msg': 'success', 'code': 200, 'data': res})
     
-### 待补充实验信息
+### 获取各pcr位点投入量和内参信息
 @expertohos.post('/getexperinfo')
 def getexperinfo():
     libID = request.get_json()['libID']

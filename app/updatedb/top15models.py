@@ -1,10 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import create_access_token
-from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash
-# from openpyxl import load_workbook
-from glob import glob
+from datetime import datetime
 
 app = Flask(__name__)
 app.config.from_pyfile('/data/yubei/Biotech/config.py')

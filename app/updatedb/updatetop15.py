@@ -1,11 +1,7 @@
 import sys
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from top15models import IGHtop15,IGKtop15,IGLtop15,IGDHtop15,KDEtop15,TRBDJtop15,TRBVJtop15,TRDDJtop15,TRDVJtop15,TRGtop15
-
-app = Flask(__name__)
-app.config.from_pyfile('/data/yubei/Biotech/config.py')
-db = SQLAlchemy(app)
+from top15models import app, db
+from sqlalchemy import and_
 
 top15db = {'IGH':IGHtop15, 'IGDH':IGDHtop15, 'IGK':IGKtop15, 'IGL':IGLtop15, 'IGK+':KDEtop15, \
            'TRB':TRBVJtop15, 'TRB+':TRBDJtop15, 'TRD':TRDVJtop15, 'TRD+':TRDDJtop15, 'TRG':TRGtop15}
@@ -36,8 +32,13 @@ def updateData(input):
                             'adjustedCellRatio' : l[11],
                             'markerYN' : l[10]
                         }
-                    top15 = top15db[ig[0]](**data)
-                    db.session.add(top15)
+                    top15 = top15db[ig[0]].query.filter(and_(top15db[ig[0]].sampleBarcode==sampleBarcode, top15db[ig[0]].labDate==labdate, \
+                                                             top15db[ig[0]].barcodeGroup==barcodeGroup, top15db[ig[0]].markerReads==l[2])).first()
+                    if top15:
+                        top15.update(**data)
+                    else:
+                        top15 = top15db[ig[0]](**data)
+                        db.session.add(top15)
             db.session.commit()
     except Exception as e:
         print(e)
