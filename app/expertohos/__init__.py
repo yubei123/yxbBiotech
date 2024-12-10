@@ -68,7 +68,6 @@ def inputexperinfo():
         if sampleinfo:
             sampleinfo.update(sampleStatus='已实验')
     for i in libID_list:
-        # print(i)
         sampleMonitor.delay(i)
         libID = pipelineMonitor.query.filter(pipelineMonitor.libID == i).first()
         if libID:

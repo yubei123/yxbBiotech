@@ -1,9 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import create_access_token
-from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash
-# from openpyxl import load_workbook
+from datetime import datetime
 from glob import glob
 
 app = Flask(__name__)
