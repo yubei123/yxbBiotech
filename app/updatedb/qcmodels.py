@@ -20,7 +20,9 @@ class IGHqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -56,7 +58,7 @@ class IGHqc(db.Model):
     qc21 = db.Column(db.Integer)
     qc22 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
-    
+
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -71,7 +73,9 @@ class IGDHqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -103,7 +107,7 @@ class IGDHqc(db.Model):
     qc17 = db.Column(db.Integer)
     qc18 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
-    
+
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -118,7 +122,9 @@ class IGKqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -143,7 +149,7 @@ class IGKqc(db.Model):
     qc10 = db.Column(db.Integer)
     qc11 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
-    
+
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -158,7 +164,9 @@ class IGLqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -187,7 +195,7 @@ class IGLqc(db.Model):
     qc14 = db.Column(db.Integer)
     qc15 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
-    
+
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -202,7 +210,9 @@ class TRBVJqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -254,7 +264,7 @@ class TRBVJqc(db.Model):
     qc37 = db.Column(db.Integer)
     qc38 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
-    
+
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -269,7 +279,9 @@ class TRBDJqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -306,7 +318,7 @@ class TRBDJqc(db.Model):
     qc22 = db.Column(db.Integer)
     qc23 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
-    
+
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -321,7 +333,9 @@ class TRDqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -345,6 +359,13 @@ class TRDqc(db.Model):
     qc9 = db.Column(db.Integer)
     addtime = db.Column(db.DateTime, default=datetime.now)
 
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def to_json(self):
+        return serialize(self)
+
 class TRGqc(db.Model):
     __tablename__ = 'TRGqc'
     id = db.Column(db.Integer, primary_key=True)
@@ -352,7 +373,9 @@ class TRGqc(db.Model):
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
+    finalQCres = db.Column(db.String(4))
     posQC = db.Column(db.Float)
+    posQCres = db.Column(db.String(4))
     negQC = db.Column(db.String(4))
     samplesPollute = db.Column(db.String(20))
     totalReads = db.Column(db.Integer)
@@ -410,5 +433,40 @@ class qctohos(db.Model):
         for k, v in kwargs.items():
             setattr(self, k, v)
     
+    def to_json(self):
+        return serialize(self)
+
+class SampleInfo(db.Model):
+    __tablename__ = 'sampleinfo'
+    id = db.Column(db.Integer, primary_key=True)
+    sampleBarcode = db.Column(db.String(50), index=True)
+    projectBarcode = db.Column(db.String(20), index=True)
+    projectName = db.Column(db.String(50), index=True)
+    patientName = db.Column(db.String(10), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    hospitalName = db.Column(db.String(50), index=True)
+    sexName = db.Column(db.String(2))
+    patientAge = db.Column(db.String(20))
+    patientCardNo = db.Column(db.String(20))
+    patientPhone = db.Column(db.String(20))
+    sampleType = db.Column(db.String(20), index=True)
+    hosDepartment = db.Column(db.String(20))
+    patientNo = db.Column(db.String(20))
+    bedNo = db.Column(db.String(20))
+    doctorName = db.Column(db.String(20))
+    clinicalDiagnosis = db.Column(db.String(100))
+    sampleCollectionTime = db.Column(db.DateTime)
+    sampleReceiveTime = db.Column(db.DateTime)
+    diagnosisPeriod = db.Column(db.String(20), index=True)
+    projectType = db.Column(db.String(20), index=True)
+    reportTime = db.Column(db.DateTime)
+    sampleStatus = db.Column(db.String(64), index=True)
+    remark = db.Column(db.String(256))
+    addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
     def to_json(self):
         return serialize(self)
