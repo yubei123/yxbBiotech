@@ -1,5 +1,5 @@
 import sys
-from top15models import IGHtop15,IGKtop15,IGLtop15,IGDHtop15,KDEtop15,TRBDJtop15,TRBVJtop15,TRDDJtop15,TRDVJtop15,TRGtop15
+from top15models import IGHtop15,IGKtop15,IGLtop15,IGDHtop15,KDEtop15,TRBDJtop15,TRBVJtop15,TRDDJtop15,TRDVJtop15,TRGtop15,SampleInfo
 from top15models import app, db
 from sqlalchemy import and_
 
@@ -8,16 +8,19 @@ top15db = {'IGH':IGHtop15, 'IGDH':IGDHtop15, 'IGK':IGKtop15, 'IGL':IGLtop15, 'IG
 
 def updateData(input):
     try:
+        labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = input.split('/')[-1].split('.')[0].split('-')
         with app.app_context():
-            labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = input.split('/')[-1].split('.')[0].split('-')
+            sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==sampleBarcode, SampleInfo.diagnosisPeriod==diagnosisPeriod)).first()
             with open(input, 'r') as f:
                 for line in f:
                     l = line.strip().split(',')
-                    if l[0].startswith('IG'):
+                    if l[0].startswith('IG') or l[0].startswith('TR'):
                         ig = l[0].split('-')
                         continue
                     data = {
                             'sampleBarcode': sampleBarcode,
+                            'patientID':sampleinfo.patientID, 
+                            'sampleCollectionTime':sampleinfo.sampleCollectionTime,
                             'labDate': labdate,
                             'barcodeGroup': barcodeGroup,
                             'top' : l[0],

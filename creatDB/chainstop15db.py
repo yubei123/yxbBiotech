@@ -14,6 +14,8 @@ class IGHtop15(db.Model):
     __tablename__ = 'IGHtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -33,6 +35,8 @@ class IGDHtop15(db.Model):
     __tablename__ = 'IGDHtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -52,6 +56,8 @@ class IGKtop15(db.Model):
     __tablename__ = 'IGKtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -71,6 +77,8 @@ class KDEtop15(db.Model):
     __tablename__ = 'KDEtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -91,6 +99,8 @@ class IGLtop15(db.Model):
     __tablename__ = 'IGLtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -110,6 +120,8 @@ class TRBVJtop15(db.Model):
     __tablename__ = 'TRBVJtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -129,6 +141,8 @@ class TRBDJtop15(db.Model):
     __tablename__ = 'TRBDJtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -148,6 +162,8 @@ class TRDVJtop15(db.Model):
     __tablename__ = 'TRDVJtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -167,6 +183,8 @@ class TRDDJtop15(db.Model):
     __tablename__ = 'TRDDJtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
@@ -186,6 +204,8 @@ class TRGtop15(db.Model):
     __tablename__ = 'TRGtop15'
     id = db.Column(db.Integer, primary_key=True)
     sampleBarcode = db.Column(db.String(50), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
     labDate = db.Column(db.String(8), index=True)
     barcodeGroup = db.Column(db.String(10))
     top = db.Column(db.String(10))
