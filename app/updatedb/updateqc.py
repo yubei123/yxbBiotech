@@ -1,7 +1,5 @@
 import sys
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from qcmodels import IGHqc, IGDHqc, IGKqc, IGLqc, TRBDJqc, TRBVJqc, TRDqc, TRGqc
+from qcmodels import IGHqc, IGDHqc, IGKqc, IGLqc, TRBDJqc, TRBVJqc, TRDqc, TRGqc, SampleInfo
 from sqlalchemy import and_
 from qcmodels import app, db
 
@@ -9,14 +7,14 @@ qcdb = {'IGH': IGHqc, 'IGDH': IGDHqc, 'IGK': IGKqc, 'IGL': IGLqc, 'TRBDJ': TRBDJ
 
 def updateData(input):
     try:
+        labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = input.split('/')[-1].split('.')[0].split('-')
         with app.app_context():
-            labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = input.split('/')[-1].split('.')[0].split('-')
             with open(input, 'r', encoding='gbk') as f:
                 head = f.readline().strip().split(',')
                 for line in f:
                     l = line.strip().split(',')
                     data = {
-                        'sampleBarcode': sampleBarcode,'labDate': labdate,'barcodeGroup': barcodeGroup,'labUser' : labUser,
+                        'sampleBarcode': sampleBarcode,'labDate': labdate,'barcodeGroup':barcodeGroup,'labUser':labUser, 
                         'posQC' : l[2], 'negQC' : l[3], 'samplesPollute' : l[4],
                         'totalReads' : l[5], 'totalReadsRes' : l[6],
                         'q30' : l[7], 'q30Res' : l[8],
