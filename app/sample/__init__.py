@@ -198,7 +198,6 @@ def searchsampleinfo():
         query = query.filter(between(SampleInfo.addtime, stime, etime))
         n += 1
     info = query.order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
-    print(n)
     a = [i.to_json() for i in info]
     if not a or n == 0:
         return jsonify({'msg': 'no data', 'code': 204})
@@ -254,6 +253,7 @@ def deletesampleinfo():
 def generatePatientID():
     project2site = {'KSB001':'B', 'KSB002':'T', 'KSB003':'B', 'KSB004':'T'}
     Period2inputDNA = {'time0':100, 'MRD':''}
+    Period2Reads = {'time0':'0.5M', 'MRD':''}
     today = datetime.now().strftime('%Y%m%d')
     data = request.get_json()
     currentBarcode, currentproject = data['currentBarcode'].split('+')
@@ -312,14 +312,16 @@ def generatePatientID():
                 ## 如果项目检测位点为BCR，则生成BCR四条链的实验信息，初诊DNA投入量为100ng，MRD DNA投入量不设置默认值
                 if k == 'B':
                     for s in ['IGH','IGDH','IGK','IGL']:
-                        experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
+                        experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID, 'expectedReads':Period2Reads[i],\
+                                     'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
                         db.session.add(experimenttohos(**experinfo))
                         db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                         experID_num += 1
                 ## 如果项目检测位点为TCR，则生成TCR四条链的实验信息，初诊DNA投入量为100ng，MRD DNA投入量不设置默认值
                 elif k == 'T':
                     for s in ['TRBVJ','TRBDJ','TRD','TRG']:
-                        experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
+                        experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'expectedReads':Period2Reads[i],\
+                                     'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':v, 'inputNG':Period2inputDNA[i], 'pcrSite':s}
                         db.session.add(experimenttohos(**experinfo))
                         db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                         experID_num += 1
@@ -327,12 +329,14 @@ def generatePatientID():
         if dupSite != []:
             for i in dupSite:
                 if i in ['IGH','IGDH','IGK','IGL']:
-                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'B_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
+                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,\
+                                 'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'B_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
                     db.session.add(experimenttohos(**experinfo))
                     db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                     experID_num += 1
                 elif i in ['TRBVJ','TRBDJ','TRD','TRG']:
-                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'T_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
+                    experinfo = {'sampleBarcode': currentBarcode, 'patientName':c_sinfo.patientName, 'patientID': PatientID,\
+                                 'experimentID':f'{today}_{str(experID_num).zfill(4)}','diagnosisPeriod':f'T_{diagnosisPeriods.split("_")[1]}', 'pcrSite':i}
                     db.session.add(experimenttohos(**experinfo))
                     db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                     experID_num += 1

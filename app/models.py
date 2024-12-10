@@ -160,6 +160,7 @@ class experimenttohos(db.Model):
     labSite = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
     inputNG = db.Column(db.String(8))
+    expectedReads = db.Column(db.String(20))
     qcDate = db.Column(db.String(8), index=True)
     pcrSite = db.Column(db.String(10), index=True)
     addtime = db.Column(db.DateTime, index=True, default=datetime.now)

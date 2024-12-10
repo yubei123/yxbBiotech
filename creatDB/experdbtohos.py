@@ -1,9 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import create_access_token
-from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash
-# from openpyxl import load_workbook
+from datetime import datetime
 from glob import glob
 
 app = Flask(__name__)
@@ -23,6 +20,7 @@ class experimenttohos(db.Model):
     labSite = db.Column(db.String(10))
     labUser = db.Column(db.String(20))
     inputNG = db.Column(db.String(8))
+    expectedReads = db.Column(db.String(20))
     qcDate = db.Column(db.String(8), index=True)
     pcrSite = db.Column(db.String(10), index=True)
     addtime = db.Column(db.DateTime, index=True, default=datetime.now)
