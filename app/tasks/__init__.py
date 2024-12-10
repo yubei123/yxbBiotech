@@ -28,14 +28,18 @@ def onProcessPipline(sh):
 
 @celery_app.task
 def sampleMonitor(libID):
+    print(libID)
+    labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = libID.split('/')[-1].split('.')[0].split('-')
     while True:
         if os.path.exists(f'/data/1-test-zrz/00_rawdata/20241204/{libID}_R1.fastq.gz') and os.path.exists(f'/data/1-test-zrz/00_rawdata/20241204/{libID}_R2.fastq.gz'):
             with apps.app_context():
                 pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID == libID).first()
+                sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod ).first()
                 print(pipeinfo.fqMonitor)
                 if pipeinfo.fqMonitor == '不存在':
-                    onProcessPipline.delay(f'echo xiaobei123 |sudo -S /opt/miniconda/bin/python /data/1-test-zrz/1-unix-1204.cpython-37.pyc {libID}')
+                    onProcessPipline.delay(f'echo beiyu98234 |sudo -S /opt/miniconda/bin/python /data/1-test-zrz/1-unix-1204.cpython-37.pyc {libID}')
                     pipeinfo.update(fqMonitor='已存在')
+                    sampleinfo.update(sampleStatus='分析中')
                     db.session.commit()
                 else:
                     break
