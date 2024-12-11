@@ -205,6 +205,7 @@ def getexperinfo():
         return jsonify({'msg': 'no data', 'code': 204})
     else:
         chainsinfo['patientID'] = sampleinfo.patientID
+        sampleCollectionTime = sampleinfo.sampleCollectionTime
     experinfo = experimenttohos.query.filter(and_(experimenttohos.labDate == labdate, experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.barcodeGroup == barcodeGroup)).all()
     if not experinfo:
         return jsonify({'msg': 'no data', 'code': 204})
@@ -215,7 +216,9 @@ def getexperinfo():
             i = i.to_json()
             chainsinfo[i['pcrSite']]['inputDNA'] = i['inputNG']
             chainsinfo[i['pcrSite']]['qc'] = qcinfo[i['pcrSite'].lower()]
-    clonesInfo = getCloneInfo(libID)
-    chainsinfo['clonesInfo'] = clonesInfo
+            chainsinfo[i['pcrSite']]['expectedReads'] = i['expectedReads']
+    if diagnosisPeriod.split('_')[1] != '0':
+        clonesInfo = getCloneInfo(libID, chainsinfo['patientID'], sampleCollectionTime)
+        chainsinfo['clonesInfo'] = clonesInfo
 
     return jsonify({'msg': 'success', 'code': 200, 'data': chainsinfo})
