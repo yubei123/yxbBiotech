@@ -17,6 +17,7 @@ top15db = {'IGH':IGHtop15, 'IGDH':IGDHtop15, 'IGK':IGKtop15, 'IGL':IGLtop15, 'IG
 
 bioinfo = Blueprint('bioinfo', __name__)
 
+## 检索所有已实验样本分析流程状态
 @bioinfo.post('searchlibanalysis')
 @jwt_required()
 def searchlibanalysis():
@@ -31,6 +32,7 @@ def searchlibanalysis():
             res.append(i.to_json())
     return jsonify({'msg': 'success', 'code': 200, 'data': {'pages': libinfo.pages, 'data':res}})
 
+## 检索所有待出具报告样本
 @bioinfo.post('getreportsample')
 @jwt_required()
 def getreportsample():
@@ -45,19 +47,21 @@ def getreportsample():
             res.append(i.to_json())
     return jsonify({'msg': 'success', 'code': 200, 'data': {'pages': sampleinfo.pages, 'data':res}})
 
+## 获取待出具报告样本实验信息等
 @bioinfo.post('getreportinfo')
 @jwt_required()
 def getreportinfo():
     data = request.get_json()
     sampleBarcode = data['sampleBarcode']
     diagnosisPeriod = data['diagnosisPeriod']
-    experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.diagnosisPeriod == diagnosisPeriod).all()
+    experinfo = experimenttohos.query.filter(and_(experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.diagnosisPeriod == diagnosisPeriod)).all()
     if not experinfo:
         return jsonify({'msg': 'no data', 'code': 204})
     else:
         res = [i.to_json() for i in experinfo]
         return jsonify({'msg': 'success', 'code': 200, 'data': res})
-    
+
+## 获取文库质控信息
 @bioinfo.post('getqcinfo')
 @jwt_required()
 def getqcinfo():
@@ -68,7 +72,7 @@ def getqcinfo():
     pcrSite = data['pcrSite']
     with qcapp.app_context():
         qc = qcdb[pcrSite]
-        qcinfo = qc.query.filter(qc.sampleBarcode == sampleBarcode, qc.labDate == labDate, qc.barcodeGroup == barcodeGroup).first()
+        qcinfo = qc.query.filter(and_(qc.sampleBarcode == sampleBarcode, qc.labDate == labDate, qc.barcodeGroup == barcodeGroup)).first()
         if not qcinfo:
             return jsonify({'msg': 'no data', 'code': 204})
         else:
@@ -92,7 +96,8 @@ def getqcinfo():
             ]
             res = a + qcres + [{'key': '总的质控结果', 'value': qcinfo['finalQCres'], 'res':qcinfo['finalQCres']}]
             return jsonify({'msg': 'success', 'code': 200, 'data': res})
-        
+
+## 获取文库top15结果        
 @bioinfo.post('gettop15info')
 @jwt_required()
 def gettop15info():
@@ -106,8 +111,8 @@ def gettop15info():
         if pcrSite == 'IGK':
             top15_1 = top15db['IGK']
             top15_2 = top15db['IGK+']
-            top15info_1 = top15_1.query.filter(top15_1.sampleBarcode == sampleBarcode, top15_1.labDate == labDate, top15_1.barcodeGroup == barcodeGroup).all()
-            top15info_2 = top15_2.query.filter(top15_2.sampleBarcode == sampleBarcode, top15_2.labDate == labDate, top15_2.barcodeGroup == barcodeGroup).all()
+            top15info_1 = top15_1.query.filter(and_(top15_1.sampleBarcode == sampleBarcode, top15_1.labDate == labDate, top15_1.barcodeGroup == barcodeGroup)).all()
+            top15info_2 = top15_2.query.filter(and_(top15_2.sampleBarcode == sampleBarcode, top15_2.labDate == labDate, top15_2.barcodeGroup == barcodeGroup)).all()
             if top15info_1:
                 for i in top15info_1:
                     i = i.to_json()
@@ -121,8 +126,8 @@ def gettop15info():
         elif pcrSite == 'TRD':
             top15_1 = top15db['TRD']
             top15_2 = top15db['TRD+']
-            top15info_1 = top15_1.query.filter(top15_1.sampleBarcode == sampleBarcode, top15_1.labDate == labDate, top15_1.barcodeGroup == barcodeGroup).all()
-            top15info_2 = top15_2.query.filter(top15_2.sampleBarcode == sampleBarcode, top15_2.labDate == labDate, top15_2.barcodeGroup == barcodeGroup).all()
+            top15info_1 = top15_1.query.filter(and_(top15_1.sampleBarcode == sampleBarcode, top15_1.labDate == labDate, top15_1.barcodeGroup == barcodeGroup)).all()
+            top15info_2 = top15_2.query.filter(and_(top15_2.sampleBarcode == sampleBarcode, top15_2.labDate == labDate, top15_2.barcodeGroup == barcodeGroup)).all()
             if top15info_1:
                 for i in top15info_1:
                     i = i.to_json()
@@ -135,7 +140,7 @@ def gettop15info():
                     res.append(i)
         else:
             top15 = top15db[pcrSite]
-            top15info = top15.query.filter(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup).all()
+            top15info = top15.query.filter(and_(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup)).all()
             if top15info:
                 for i in top15info:
                     i = i.to_json()
@@ -146,7 +151,58 @@ def gettop15info():
         else:
             return jsonify({'msg': 'success', 'code': 200, 'data': res})
 
+## 生成主克隆信息表格
 @bioinfo.post('getmainclones')
 @jwt_required()
 def getmainclones():
-    data = request.get_json()
+    data = request.json['data']
+    for i in data:
+        sampleBarcode = i['sampleBarcode']
+        labDate = i['labDate']
+        barcodeGroup = i['barcodeGroup']
+        pcrSite = i['pcrSite']
+        diagnosisPeriod = i['diagnosisPeriod']
+        res = []
+        if pcrSite == 'IGK':
+            top15_1 = top15db['IGK']
+            top15_2 = top15db['IGK+']
+            top15info_1 = top15_1.query.filter(and_(top15_1.sampleBarcode == sampleBarcode, top15_1.labDate == labDate, top15_1.barcodeGroup == barcodeGroup, top15_1.markerYN == 'yes')).all()
+            top15info_2 = top15_2.query.filter(and_(top15_2.sampleBarcode == sampleBarcode, top15_2.labDate == labDate, top15_2.barcodeGroup == barcodeGroup, top15_2.markerYN == 'yes')).all()
+            if top15info_1:
+                for j in top15info_1:
+                    j = j.to_json()
+                    j['pcrSite'] = 'IGK'
+                    res.append(j)
+            if top15info_2:
+                for j in top15info_2:
+                    j = j.to_json()
+                    j['pcrSite'] = 'IGK+'
+                    res.append(j)
+        elif pcrSite == 'TRD':
+            top15_1 = top15db['TRD']
+            top15_2 = top15db['TRD+']
+            top15info_1 = top15_1.query.filter(and_(top15_1.sampleBarcode == sampleBarcode, top15_1.labDate == labDate, top15_1.barcodeGroup == barcodeGroup, top15_1.markerYN == 'yes')).all()
+            top15info_2 = top15_2.query.filter(and_(top15_2.sampleBarcode == sampleBarcode, top15_2.labDate == labDate, top15_2.barcodeGroup == barcodeGroup, top15_2.markerYN == 'yes')).all()
+            if top15info_1:
+                for j in top15info_1:
+                    j = j.to_json()
+                    j['pcrSite'] = 'TRD'
+                    res.append(j)
+            if top15info_2:
+                for j in top15info_2:
+                    j = j.to_json()
+                    j['pcrSite'] = 'TRD+'
+                    res.append(j)
+        else:
+            top15 = top15db[pcrSite]
+            top15info = top15.query.filter(and_(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup, top15.markerYN == 'yes')).all()
+            if top15info:
+                for j in top15info:
+                    j = j.to_json()
+                    j['pcrSite'] = pcrSite
+                    res.append(j)
+        if res == []:
+            return jsonify({'msg': 'no data', 'code': 204})
+        else:
+            return jsonify({'msg': 'success', 'code': 200, 'data': {'diagnosisPeriod':diagnosisPeriod,'data':res}})
+        
