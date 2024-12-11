@@ -7,12 +7,12 @@ qcdb = {'IGH': IGHqc, 'IGDH': IGDHqc, 'IGK': IGKqc, 'IGL': IGLqc, 'TRBDJ': TRBDJ
 
 def updateData(input):
     try:
-        labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = input.split('/')[-1].split('.')[0].split('-')
         with app.app_context():
             with open(input, 'r', encoding='gbk') as f:
                 head = f.readline().strip().split(',')
                 for line in f:
                     l = line.strip().split(',')
+                    labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = l[0].split('-')
                     data = {
                         'sampleBarcode': sampleBarcode,'labDate': labdate,'barcodeGroup':barcodeGroup,'labUser':labUser, 
                         'posQC' : l[2], 'negQC' : l[3], 'samplesPollute' : l[4],
