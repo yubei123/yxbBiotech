@@ -274,3 +274,26 @@ class pipelineMonitor(db.Model):
     
     def to_json(self):
         return serialize(self)
+    
+class Traceableclones(db.Model):
+    __tablename__ = 'Traceableclones'
+    id = db.Column(db.Integer, primary_key=True)
+    sampleBarcode = db.Column(db.String(50), index=True)
+    labDate = db.Column(db.String(8), index=True)
+    patientID = db.Column(db.String(20), index=True)
+    sampleCollectionTime = db.Column(db.DateTime)
+    cloneIndex = db.Column(db.String(15))
+    pcrSite = db.Column(db.String(10))
+    markerSeq = db.Column(db.String(100))
+    markerReads = db.Column(db.Integer)
+    vGene = db.Column(db.String(100))
+    jGene = db.Column(db.String(100))
+    adjustedCellRatio = db.Column(db.Float)
+    addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+    
+    def to_json(self):
+        return serialize(self)
