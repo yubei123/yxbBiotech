@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 from app.models import SampleInfo, experimenttohos, qctohos, pipelineMonitor, Traceableclones
 from app import db
+import json
 from app.utils import changeUTCtoLocal, addOneday
 from flask_jwt_extended import jwt_required
 from sqlalchemy import between, or_, and_
@@ -58,7 +59,14 @@ def getreportinfo():
     if not experinfo:
         return jsonify({'msg': 'no data', 'code': 204})
     else:
-        res = [i.to_json() for i in experinfo]
+        res = []
+        with qcapp.app_context():
+            for i in experinfo:
+                i = i.to_json()
+                qc = qcdb[i['pcrSite']]
+                qcinfo = qc.query.filter(and_(qc.sampleBarcode == sampleBarcode, qc.labDate == i['labDate'], qc.barcodeGroup == i['barcodeGroup'])).first()
+                i['finalQCres'] = qcinfo.finalQCres
+                res.append(i)
         return jsonify({'msg': 'success', 'code': 200, 'data': res})
 
 ## 获取文库质控信息
@@ -157,12 +165,9 @@ def gettop15info():
 def getmainclones():
     data = request.json['data']
     with top15app.app_context():
-        # info = IGHtop15.query.filter(and_(IGHtop15.sampleBarcode == data[0]['sampleBarcode'], IGHtop15.labDate == data[0]['labDate'], IGHtop15.barcodeGroup == data[0]['barcodeGroup'])).all() + \
-        #        TRBVJtop15.query.filter(and_(TRBVJtop15.sampleBarcode == data[0]['sampleBarcode'], TRBVJtop15.labDate == data[0]['labDate'], TRBVJtop15.barcodeGroup == data[0]['barcodeGroup'])).all()
-        # if not info:
-        #     return jsonify({'msg': 'no data', 'code': 204})
         res = []
         for i in data:
+            print(i)
             sampleBarcode = i['sampleBarcode']
             labDate = i['labDate']
             barcodeGroup = i['barcodeGroup']
@@ -176,11 +181,13 @@ def getmainclones():
                     for j in top15info_1:
                         j = j.to_json()
                         j['pcrSite'] = 'IGK'
+                        j['diagnosisPeriod'] = i['diagnosisPeriod']
                         res.append(j)
                 if top15info_2:
                     for j in top15info_2:
                         j = j.to_json()
                         j['pcrSite'] = 'IGK+'
+                        j['diagnosisPeriod'] = i['diagnosisPeriod']
                         res.append(j)
             elif pcrSite == 'TRD':
                 top15_1 = top15db['TRD']
@@ -191,11 +198,13 @@ def getmainclones():
                     for j in top15info_1:
                         j = j.to_json()
                         j['pcrSite'] = 'TRD'
+                        j['diagnosisPeriod'] = i['diagnosisPeriod']
                         res.append(j)
                 if top15info_2:
                     for j in top15info_2:
                         j = j.to_json()
                         j['pcrSite'] = 'TRD+'
+                        j['diagnosisPeriod'] = i['diagnosisPeriod']
                         res.append(j)
             else:
                 top15 = top15db[pcrSite]
@@ -204,26 +213,113 @@ def getmainclones():
                     for j in top15info:
                         j = j.to_json()
                         j['pcrSite'] = pcrSite
+                        j['diagnosisPeriod'] = i['diagnosisPeriod']
                         res.append(j)
-        print(res)
         if res == []:
             return jsonify({'msg': '没有检测到主克隆！', 'code': 205})
         else:
             return jsonify({'msg': 'success', 'code': 200, 'data': res})
         
+### 获取生成报告信息
+def getsampleinfo(sampleBarcode,diagnosisPeriod):
+    sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
+    data = {}
+    if sampleinfo:
+        data = {
+                'name':sampleinfo.patientName, 
+                'department' : sampleinfo.hosDepartment,
+                'project_type' : sampleinfo.projectName,
+                'barcodeid' : sampleinfo.sampleBarcode,
+                'hospitalid' : sampleinfo.patientNo,
+                'sex' : sampleinfo.sexName,
+                'sample_type' : sampleinfo.sampleType,
+                'age' : sampleinfo.patientAge,
+                'doctor' : sampleinfo.doctorName,
+                'diagnosis' : sampleinfo.clinicalDiagnosis,
+                'submission_time' : datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d') if sampleinfo.sampleCollectionTime != None else '',
+                }
+    return data
+
 ## 生成报告
 @bioinfo.post('getreport')
 @jwt_required()
 def getreport():
+    print(request.get_json())
     data = request.json['data']
+    inputNG = request.json['inputNG']
     sampleBarcode = data[0]['sampleBarcode']
     labDate = data[0]['labDate']
-    diagnosisPeriod = i['diagnosisPeriod']
+    barcodeGroup = data[0]['barcodeGroup']
+    patientID = data[0]['patientID']
+    sampleCollectionTime = data[0]['sampleCollectionTime']
+    lab, diagnosisTime = data[0]['diagnosisPeriod'].split('_')
+    sampledata = getsampleinfo(sampleBarcode,data[0]['diagnosisPeriod'])
+    sampledata['input_dna'] = inputNG
+    with open("config.json","w", encoding='gbk') as f:
+        json.dump(sampledata,f)
     cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate)).all()
     if cloneinfo:
         db.session.delete(cloneinfo)
-    for i in data:
-        cloneinfo = Traceableclones(**i)
-        db.session.add(cloneinfo)
+    if diagnosisTime == '0':
+        if lab == 'B':
+            sitelist = ['IGH', 'IGDH', 'IGK', 'IGK+', 'IGL']
+        else:
+            sitelist = ['TRBVJ', 'TRBDJ', 'TRD', 'TRD+', 'TRG']
+        n = 1
+        outdata = []
+        for s in sitelist:
+            for i in data:
+                if i['pcrSite'] == s:
+                    top15 = top15db[s]
+                    if s == 'IGDH':
+                        s = 'IGH+'
+                    elif s == 'TRBVJ':
+                        s = 'TRB'
+                    elif s == 'TRBDJ':
+                        s = 'TRB+'
+                    i['cloneIndex'] = f'{s}-SEQ{n}'
+                    n += 1
+                    with top15app.app_context():
+                        top15info = top15.query.filter(and_(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup)).all()
+                        if top15info:
+                            for j in top15info:
+                                if j.top == 'top11':
+                                    break
+                                if j.markerSeq == i['markerSeq']:
+                                    SEQ_number = i['cloneIndex'] 
+                                else:
+                                    SEQ_number = '-'
+                                outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
+                                                'SEQ_number': SEQ_number,'locus': s,'CDR3': j.markerSeq,'freq':j.cloneFreq,
+                                                'Vgene':j.vGene,'Jgene':j.jGene,'Total_nucleated_cells/%':j.adjustedCellRatio,
+                                                })
+                        clones = {
+                            'sampleBarcode' : sampleBarcode,
+                            'labDate' : labDate,
+                            'patientID' : patientID,
+                            'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
+                            'cloneIndex' : i['cloneIndex'],'pcrSite' : i['pcrSite'],'markerSeq' : i['markerSeq'],
+                            'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
+                            'adjustedCellRatio' : i['adjustedCellRatio'],
+                        }
+                        cloneinfo = Traceableclones(**clones)
+                        db.session.add(cloneinfo)
+            with open("test.json","w") as f:
+                json.dump(outdata,f)
+    else:
+        MRD_clones = {}
+        cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime.desc()).all()
+        if cloneinfo:
+            for i in cloneinfo:
+                if i.markerSeq not in MRD_clones:
+                    MRD_clones[i.markerSeq] = i.cloneFreq
+                else:
+                    MRD_clones[i.markerSeq] += i.cloneFreq
+            for i in MRD_clones:
+                outdata.append({'CDR3': i,'freq':MRD_clones[i]})
+        for i in data:
+            cloneinfo = Traceableclones(**i)
+            db.session.add(cloneinfo)
     db.session.commit()
+    return jsonify({'msg': 'success', 'code': 200})                                                       
         

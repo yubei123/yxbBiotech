@@ -31,11 +31,3 @@ def getCloneInfo(patientID, current_sampleCollectionTime):
     for i in cloneinfos:
         data[i.pcrSite].append({'CDR3':i.markerSeq,'vgene':i.vGene, 'jgene':i.jGene})
     return data
-
-def getCloneInfo2(patientID, current_sampleCollectionTime):
-    data = defaultdict(list)
-    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != current_sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime.desc()).first()
-    cloneinfos = Traceableclones.query.filter(Traceableclones.sampleCollectionTime == cloneinfo.sampleCollectionTime).all()
-    for i in cloneinfos:
-        data[i.pcrSite].append({'CDR3':i.markerSeq,'vgene':i.vGene, 'jgene':i.jGene})
-    return data
