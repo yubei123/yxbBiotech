@@ -4,7 +4,7 @@ from top15models import app, db
 from sqlalchemy import and_
 
 top15db = {'IGH':IGHtop15, 'IGDH':IGDHtop15, 'IGK':IGKtop15, 'IGL':IGLtop15, 'IGK+':KDEtop15, \
-           'TRBVJ':TRBVJtop15, 'TRBDJ':TRBDJtop15, 'TRD':TRDVJtop15, 'TRD+':TRDDJtop15, 'TRG':TRGtop15}
+           'TRB':TRBVJtop15, 'TRB+':TRBDJtop15, 'TRD':TRDVJtop15, 'TRD+':TRDDJtop15, 'TRG':TRGtop15}
 
 def updateData(input):
     try:

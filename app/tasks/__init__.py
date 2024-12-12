@@ -31,7 +31,7 @@ def sampleMonitor(libID):
     print(libID)
     labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = libID.split('/')[-1].split('.')[0].split('-')
     while True:
-        if os.path.exists(f'/data/1-test-zrz/00_rawdata/20241204/{libID}_R1.fastq.gz') and os.path.exists(f'/data/1-test-zrz/00_rawdata/20241204/{libID}_R2.fastq.gz'):
+        if os.path.exists(f'/data/1-test-zrz/00_rawdata/{labdate}/{libID}_R1.fastq.gz') and os.path.exists(f'/data/1-test-zrz/00_rawdata/{labdate}/{libID}_R2.fastq.gz'):
             with apps.app_context():
                 pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID == libID).first()
                 sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod ).first()

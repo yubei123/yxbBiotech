@@ -12,3 +12,4 @@ testdata/**
 **.txt
 test**
 .gitignore
+**.json

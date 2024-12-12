@@ -218,7 +218,7 @@ def getexperinfo():
             chainsinfo[i['pcrSite']]['qc'] = qcinfo[i['pcrSite'].lower()]
             chainsinfo[i['pcrSite']]['expectedReads'] = i['expectedReads']
     if diagnosisPeriod.split('_')[1] != '0':
-        clonesInfo = getCloneInfo(libID, chainsinfo['patientID'], sampleCollectionTime)
+        clonesInfo = getCloneInfo(chainsinfo['patientID'], sampleCollectionTime)
         chainsinfo['clonesInfo'] = clonesInfo
 
     return jsonify({'msg': 'success', 'code': 200, 'data': chainsinfo})

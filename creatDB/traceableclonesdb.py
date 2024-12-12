@@ -17,6 +17,7 @@ class Traceableclones(db.Model):
     pcrSite = db.Column(db.String(10))
     markerSeq = db.Column(db.String(100))
     markerReads = db.Column(db.Integer)
+    cloneFreq = db.Column(db.Float)
     vGene = db.Column(db.String(100))
     jGene = db.Column(db.String(100))
     adjustedCellRatio = db.Column(db.Float)
