@@ -257,14 +257,12 @@ def getreport():
     sampledata['input_dna'] = inputNG
     with open("config.json","w", encoding='gbk') as f:
         json.dump(sampledata,f)
-    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate)).all()
-    if cloneinfo:
-        db.session.delete(cloneinfo)
+    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate)).delete()
+    if lab == 'B':
+        sitelist = ['IGH', 'IGDH', 'IGK', 'IGK+', 'IGL']
+    else:
+        sitelist = ['TRBVJ', 'TRBDJ', 'TRD', 'TRD+', 'TRG']
     if diagnosisTime == '0':
-        if lab == 'B':
-            sitelist = ['IGH', 'IGDH', 'IGK', 'IGK+', 'IGL']
-        else:
-            sitelist = ['TRBVJ', 'TRBDJ', 'TRD', 'TRD+', 'TRG']
         n = 1
         outdata = []
         for s in sitelist:
@@ -293,33 +291,30 @@ def getreport():
                                                 'SEQ_number': SEQ_number,'locus': s,'CDR3': j.markerSeq,'freq':j.cloneFreq,
                                                 'Vgene':j.vGene,'Jgene':j.jGene,'Total_nucleated_cells/%':j.adjustedCellRatio,
                                                 })
-                        clones = {
-                            'sampleBarcode' : sampleBarcode,
-                            'labDate' : labDate,
-                            'patientID' : patientID,
-                            'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
-                            'cloneIndex' : i['cloneIndex'],'pcrSite' : i['pcrSite'],'markerSeq' : i['markerSeq'],
-                            'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
-                            'adjustedCellRatio' : i['adjustedCellRatio'],
-                        }
-                        cloneinfo = Traceableclones(**clones)
-                        db.session.add(cloneinfo)
+                    clone = {
+                        'sampleBarcode' : sampleBarcode,
+                        'labDate' : labDate,
+                        'patientID' : patientID,
+                        'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
+                        'cloneIndex' : i['cloneIndex'],'pcrSite' : i['pcrSite'],'markerSeq' : i['markerSeq'],
+                        'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
+                        'adjustedCellRatio' : i['adjustedCellRatio'],
+                    }
+                    clones = Traceableclones(**clone)
+                    db.session.add(clones)
             with open("test.json","w") as f:
                 json.dump(outdata,f)
     else:
         MRD_clones = {}
-        cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime.desc()).all()
+        outdata = []
+        cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime).all()
         if cloneinfo:
             for i in cloneinfo:
-                if i.markerSeq not in MRD_clones:
-                    MRD_clones[i.markerSeq] = i.cloneFreq
-                else:
-                    MRD_clones[i.markerSeq] += i.cloneFreq
+                MRD_clones[i.markerSeq] = i.cloneIndex.split('-')[1]
             for i in MRD_clones:
                 outdata.append({'CDR3': i,'freq':MRD_clones[i]})
         for i in data:
             cloneinfo = Traceableclones(**i)
             db.session.add(cloneinfo)
     db.session.commit()
-    return jsonify({'msg': 'success', 'code': 200})                                                       
-        
+    return jsonify({'msg': 'success', 'code': 200})
