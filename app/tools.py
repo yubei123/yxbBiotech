@@ -13,7 +13,7 @@ from app.models import SampleInfo, Traceableclones
 def generateLibID(data):
     missdata = []
     n = 0
-    for i in ['labDate', 'sampleBarcode', 'barcodeGroup', 'labSite', 'labUser', 'diagnosisPeriod']:
+    for i in ['labDate', 'sampleBarcode', 'barcodeGroup', ' ', 'labUser', 'diagnosisPeriod']:
         if data[i] == '' or data[i] == None:
             missdata.append(i)
         else:
@@ -24,8 +24,15 @@ def generateLibID(data):
     else:
         return {'msg':'fail', 'missdata':missdata}
     
-def getCloneInfo(libID, patientID, current_sampleCollectionTime):
-    labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = libID.split('/')[-1].split('-')
+def getCloneInfo(patientID, current_sampleCollectionTime):
+    data = defaultdict(list)
+    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != current_sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime.desc()).first()
+    cloneinfos = Traceableclones.query.filter(Traceableclones.sampleCollectionTime == cloneinfo.sampleCollectionTime).all()
+    for i in cloneinfos:
+        data[i.pcrSite].append({'CDR3':i.markerSeq,'vgene':i.vGene, 'jgene':i.jGene})
+    return data
+
+def getCloneInfo2(patientID, current_sampleCollectionTime):
     data = defaultdict(list)
     cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != current_sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime.desc()).first()
     cloneinfos = Traceableclones.query.filter(Traceableclones.sampleCollectionTime == cloneinfo.sampleCollectionTime).all()
