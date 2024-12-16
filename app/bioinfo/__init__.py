@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, g
 from app.models import SampleInfo, experimenttohos, qctohos, pipelineMonitor, Traceableclones
 from app import db
-import json
+import json, os
+import subprocess
 from app.utils import changeUTCtoLocal, addOneday
 from flask_jwt_extended import jwt_required
 from sqlalchemy import between, or_, and_
@@ -45,7 +46,13 @@ def getreportsample():
     else:
         res = []
         for i in sampleinfo:
-            res.append(i.to_json())
+            i = i.to_json()
+            experinfo = experimenttohos.query.filter(and_(experimenttohos.sampleBarcode == i['sampleBarcode'], experimenttohos.diagnosisPeriod == i['diagnosisPeriod'])).first()
+            if experinfo:
+                i['labDate'] = experinfo.labDate if experinfo.labDate != None else ''
+            else:
+                i['labDate'] = ''
+            res.append(i)
     return jsonify({'msg': 'success', 'code': 200, 'data': {'pages': sampleinfo.pages, 'data':res}})
 
 ## 获取待出具报告样本实验信息等
@@ -86,23 +93,19 @@ def getqcinfo():
         else:
             qcres = []
             qcinfo = qcinfo.to_json()
-            print(qcinfo)
             for i in list(qcinfo.keys())[20:-1]:
-                if qcinfo[i] == 0:
-                    qcres.append({'key': i, 'value': qcinfo[i], 'res':'不合格'})
-                else:
-                    qcres.append({'key': i, 'value': qcinfo[i], 'res':'合格'})
+                qcres.append({'key': i, 'value': qcinfo[i], 'res':''})
             a = [
                 {'key': 'Total reads', 'value': qcinfo['totalReads'], 'res':qcinfo['totalReadsRes']},\
                 {'key': 'Q30', 'value': qcinfo['q30'], 'res':qcinfo['q30Res']},\
                 {'key': '拼接率', 'value': qcinfo['assembleRate'], 'res':qcinfo['assembleRateRes']},\
                 {'key': '本批次阳性质控结果', 'value': qcinfo['posQC'], 'res':qcinfo['posQCres']},\
-                {'key': '本批次阴性质控结果', 'value': qcinfo['negQC'], 'res':qcinfo['negQC']},\
-                {'key': '样本间污染', 'value': qcinfo['samplesPollute'], 'res':qcinfo['samplesPollute']},\
+                {'key': '本批次阴性质控结果', 'value': '', 'res':qcinfo['negQC']},\
+                {'key': '样本间污染', 'value': '', 'res':qcinfo['samplesPollute']},\
                 {'key': '引物二聚体', 'value': qcinfo['primerDimers'], 'res':qcinfo['primerDimersRes']},\
                 {'key': 'QC质控结果', 'value': qcinfo['qcReads'], 'res':qcinfo['qcRes']},\
             ]
-            res = a + qcres + [{'key': '总的质控结果', 'value': qcinfo['finalQCres'], 'res':qcinfo['finalQCres']}]
+            res = a + qcres + [{'key': '总的质控结果', 'value': '', 'res':qcinfo['finalQCres']}]
             return jsonify({'msg': 'success', 'code': 200, 'data': res})
 
 ## 获取文库top15结果        
@@ -167,7 +170,6 @@ def getmainclones():
     with top15app.app_context():
         res = []
         for i in data:
-            print(i)
             sampleBarcode = i['sampleBarcode']
             labDate = i['labDate']
             barcodeGroup = i['barcodeGroup']
@@ -237,6 +239,9 @@ def getsampleinfo(sampleBarcode,diagnosisPeriod):
                 'doctor' : sampleinfo.doctorName,
                 'diagnosis' : sampleinfo.clinicalDiagnosis,
                 'submission_time' : datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d') if sampleinfo.sampleCollectionTime != None else '',
+                'jyz_name_png': 'images/XQY.jpg',
+                'shz_name_png': 'images/PHY.png',
+                'chapters_png': 'images/hst.png'
                 }
     return data
 
@@ -244,7 +249,7 @@ def getsampleinfo(sampleBarcode,diagnosisPeriod):
 @bioinfo.post('getreport')
 @jwt_required()
 def getreport():
-    print(request.get_json())
+    site = {'IGH':'IGH','IGDH':'IGDH','IGK':'IGK', 'IGK+':'IGK+','IGL':'IGL','TRBVJ':'TRB', 'TRBDJ':'TRB+','TRD':'TRD','TRD+':'TRD+','TRG':'TRG'}
     data = request.json['data']
     inputNG = request.json['inputNG']
     sampleBarcode = data[0]['sampleBarcode']
@@ -255,7 +260,13 @@ def getreport():
     lab, diagnosisTime = data[0]['diagnosisPeriod'].split('_')
     sampledata = getsampleinfo(sampleBarcode,data[0]['diagnosisPeriod'])
     sampledata['input_dna'] = inputNG
-    with open("config.json","w", encoding='gbk') as f:
+
+    out_dir = f'/data/yubei/Biotech/report/{labDate}'
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    cofing_json = f'{out_dir}/{patientID}+{sampleCollectionTime.split(" ")[0]}.config.json'
+    out_json = f'/{out_dir}/{patientID}+{sampleCollectionTime.split(" ")[0]}.report.json'
+    with open(cofing_json,"w") as f:
         json.dump(sampledata,f)
     cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate)).delete()
     if lab == 'B':
@@ -263,58 +274,91 @@ def getreport():
     else:
         sitelist = ['TRBVJ', 'TRBDJ', 'TRD', 'TRD+', 'TRG']
     if diagnosisTime == '0':
+        main_clone = {}
+        for i in data:
+            main_clone[i['markerSeq']] = i['pcrSite']
         n = 1
         outdata = []
         for s in sitelist:
-            for i in data:
-                if i['pcrSite'] == s:
-                    top15 = top15db[s]
-                    if s == 'IGDH':
-                        s = 'IGH+'
-                    elif s == 'TRBVJ':
-                        s = 'TRB'
-                    elif s == 'TRBDJ':
-                        s = 'TRB+'
-                    i['cloneIndex'] = f'{s}-SEQ{n}'
-                    n += 1
-                    with top15app.app_context():
-                        top15info = top15.query.filter(and_(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup)).all()
-                        if top15info:
-                            for j in top15info:
-                                if j.top == 'top11':
-                                    break
-                                if j.markerSeq == i['markerSeq']:
-                                    SEQ_number = i['cloneIndex'] 
-                                else:
-                                    SEQ_number = '-'
-                                outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
-                                                'SEQ_number': SEQ_number,'locus': s,'CDR3': j.markerSeq,'freq':j.cloneFreq,
-                                                'Vgene':j.vGene,'Jgene':j.jGene,'Total_nucleated_cells/%':j.adjustedCellRatio,
-                                                })
-                    clone = {
-                        'sampleBarcode' : sampleBarcode,
-                        'labDate' : labDate,
-                        'patientID' : patientID,
-                        'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
-                        'cloneIndex' : i['cloneIndex'],'pcrSite' : i['pcrSite'],'markerSeq' : i['markerSeq'],
-                        'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
-                        'adjustedCellRatio' : i['adjustedCellRatio'],
-                    }
-                    clones = Traceableclones(**clone)
-                    db.session.add(clones)
-            with open("test.json","w") as f:
-                json.dump(outdata,f)
+            top15 = top15db[s]
+            with top15app.app_context():
+                top15info = top15.query.filter(and_(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup)).all()
+                if top15info:
+                    for j in top15info:
+                        if j.top == 'top11':
+                            break
+                        if j.markerSeq in main_clone.keys():
+                            main_clone[j.markerSeq] = f'{site[s]}-SEQ{n}'
+                            SEQ_number = f'{site[s]}-SEQ{n}'
+                            n += 1
+                        else:
+                            SEQ_number = '-'
+                        outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
+                                        'SEQ_number': SEQ_number,'locus': site[s],'CDR3': j.markerSeq,'freq':j.cloneFreq,
+                                        'Vgene':j.vGene,'Jgene':j.jGene,'Total_nucleated_cells':j.adjustedCellRatio,
+                                        })
+        with open(out_json,"w") as f:
+            json.dump(outdata,f)
+        sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
+                            -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
+        if sp.returncode == 0:
+            print('success')
+        else:
+            print(sp.stderr)
+
+        for i in data:
+            clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
+                'cloneIndex' : main_clone[i['markerSeq']],'pcrSite' : site[i['pcrSite']], 'markerSeq' : i['markerSeq'],
+                'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
+                'adjustedCellRatio' : i['adjustedCellRatio']}
+            clones = Traceableclones(**clone)
+            db.session.add(clones)
     else:
         MRD_clones = {}
+        XF_clones = {}
         outdata = []
         cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime).all()
         if cloneinfo:
             for i in cloneinfo:
-                MRD_clones[i.markerSeq] = i.cloneIndex.split('-')[1]
-            for i in MRD_clones:
-                outdata.append({'CDR3': i,'freq':MRD_clones[i]})
+                MRD_clones[i.markerSeq] = i.cloneIndex
+                if i.markerSeq.startswith('XF'):
+                    XF_clones[i.markerSeq] = i.cloneIndex
+                outdata.append({'collection_data':datetime.strftime(i.sampleCollectionTime, '%Y-%m-%d'),
+                                'SEQ_number': i.cloneIndex,'locus': site[i.pcrSite],'CDR3': i.markerSeq,'freq':i.cloneFreq,
+                                'Vgene':i.vGene,'Jgene':i.jGene,'Total_nucleated_cells':i.adjustedCellRatio,
+                                })
         for i in data:
-            cloneinfo = Traceableclones(**i)
-            db.session.add(cloneinfo)
+            for s in sitelist: 
+                if i['pcrSite'] == s:
+                    if i['markerSeq'] in MRD_clones:
+                        cloneIndex = MRD_clones[i['markerSeq']]
+                    elif i['markerSeq'] in XF_clones:
+                        cloneIndex = XF_clones[i['markerSeq']]
+                    else:
+                        if not XF_clones:
+                            n = 1
+                        else:
+                            max_n = sorted([i.split('-')[-1] for i in XF_clones.values()], reverse=True)
+                            n = int(max_n[0][3:])+1
+                        cloneIndex = f'XF-{site[s]}-{n}'
+                        n += 1
+                    outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
+                                    'SEQ_number': MRD_clones[i['markerSeq']],'locus': site[i['pcrSite']],'CDR3': i['markerSeq'],'freq':i['cloneFreq'],
+                                    'Vgene':i['vGene'],'Jgene':i['jGene'],'Total_nucleated_cells':i['adjustedCellRatio'],
+                                    })
+                    clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
+                        'cloneIndex' : cloneIndex, 'pcrSite' : site[i['pcrSite']], 'markerSeq' : i['markerSeq'],
+                        'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
+                        'adjustedCellRatio' : i['adjustedCellRatio']}
+                    clones = Traceableclones(**clone)
+                    db.session.add(clones)
+        with open(out_json,"w") as f:
+            json.dump(outdata,f)
+        sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
+                            -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
+        if sp.returncode == 0:
+            print('success')
+        else:
+            print(sp.stderr)
     db.session.commit()
     return jsonify({'msg': 'success', 'code': 200})

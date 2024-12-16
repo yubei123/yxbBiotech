@@ -13,3 +13,4 @@ testdata/**
 test**
 .gitignore
 **.json
+report/**

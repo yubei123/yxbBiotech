@@ -15,13 +15,19 @@ broker = 'redis://127.0.0.1:6379/0'
 backend = 'redis://127.0.0.1:6379/1'
 
 celery_app = Celery('lym', broker=broker, backend=backend)
-celery_app.conf.broker_connection_retry_on_startup = True
+celery_app.conf.broker_connection_retry_on_startup = False
 
 @celery_app.task
-def onProcessPipline(sh):
-    print(sh)
+def onProcessPipline(sh,libID):
+    labdate = libID.split('-')[0]
     spp = subprocess.run(sh, shell=True, stderr=subprocess.PIPE)
     if spp.returncode == 0:
+        with apps.app_context():
+            pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(labdate)).all()
+            top15Monitor = [p.top15Monitor for p in pipeinfo]
+            if list(set(top15Monitor)) == ['已完成']:
+                for i in pipeinfo:
+                    sp = subprocess.run(f'echo beiyu98234 |sudo -S /opt/miniconda/bin/python /data/1-test-zrz/QC.cpython-37.pyc {i.libID}', shell=True, stderr=subprocess.PIPE)
         return '运行脚本成功！'
     else:
         return f'运行脚本失败！{spp.stderr}'
@@ -37,7 +43,7 @@ def sampleMonitor(libID):
                 sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod ).first()
                 print(pipeinfo.fqMonitor)
                 if pipeinfo.fqMonitor == '不存在':
-                    onProcessPipline.delay(f'echo beiyu98234 |sudo -S /opt/miniconda/bin/python /data/1-test-zrz/1-unix-1204.cpython-37.pyc {libID}')
+                    onProcessPipline.delay(f'echo beiyu98234 |sudo -S /opt/miniconda/bin/python /data/1-test-zrz/1-unix-1204.cpython-37.pyc {libID}',labdate)
                     pipeinfo.update(fqMonitor='已存在')
                     sampleinfo.update(sampleStatus='分析中')
                     db.session.commit()

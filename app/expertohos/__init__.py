@@ -20,7 +20,7 @@ def inputexperinfo():
     data = request.json['data']
     # print(data)
     # try:
-    libID_list = set()
+    libID_list = {}
     experID = addexperimentID.query.all()
     experID_num = 0
     if not experID:
@@ -41,7 +41,7 @@ def inputexperinfo():
         ## 如果导入的实验信息中不存在实验编号，则重新生成新的实验编号并添加新的实验信息
         if generateLibID(i)['msg'] == 'success':
             labsample[i['sampleBarcode']] = i['diagnosisPeriod']
-            libID_list.add(generateLibID(i)['libID'])
+            libID_list[generateLibID(i)['libID']] = i['patientName']
         if 'experimentID' not in i:
             i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
             experID_list.append(i['experimentID'])
@@ -67,13 +67,14 @@ def inputexperinfo():
         sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==k, SampleInfo.diagnosisPeriod == v)).first()
         if sampleinfo:
             sampleinfo.update(sampleStatus='已实验')
-    for i in libID_list:
+    for i,v in libID_list.items():
         sampleMonitor.delay(i)
         libID = pipelineMonitor.query.filter(pipelineMonitor.libID == i).first()
         if libID:
             libID.update(libID=i)
         else:
-            libID = pipelineMonitor(**{'libID':i, 'fqMonitor':'不存在', 'fpMonitor':'未开始', 'pearMonitor':'未开始', 'top15Monitor':'未开始', 'qcMonitor':'未开始', 'reportMonitor':'未生成', 'reportcheckMonitor':'未审核'})
+            libID = pipelineMonitor(**{'libID':i, 'patientName':v,'fqMonitor':'不存在', 'fpMonitor':'未开始', 'pearMonitor':'未开始', 'top15Monitor':'未开始', 
+                                       'qcMonitor':'未开始', 'reportMonitor':'未生成', 'reportcheckMonitor':'未审核'})
             db.session.add(libID)
     db.session.commit()
     experinfo_list = []

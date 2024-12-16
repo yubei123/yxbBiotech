@@ -8,23 +8,24 @@ qcdb = {'IGH': IGHqc, 'IGDH': IGDHqc, 'IGK': IGKqc, 'IGL': IGLqc, 'TRBDJ': TRBDJ
 def updateData(input):
     try:
         with app.app_context():
-            with open(input, 'r', encoding='gbk') as f:
+            with open(input, 'r', encoding='utf-8') as f:
                 head = f.readline().strip().split(',')
                 for line in f:
                     l = line.strip().split(',')
+                    print(head)
                     labdate,sampleBarcode,barcodeGroup,diagnosisPeriod,labSite,labUser = l[0].split('-')
                     data = {
                         'sampleBarcode': sampleBarcode,'labDate': labdate,'barcodeGroup':barcodeGroup,'labUser':labUser, 
-                        'posQC' : l[2], 'negQC' : l[3], 'samplesPollute' : l[4],
-                        'totalReads' : l[5], 'totalReadsRes' : l[6],
-                        'q30' : l[7], 'q30Res' : l[8],
-                        'primerDimers' : l[9], 'primerDimersRes' : l[10],
-                        'assembleRate' : l[11], 'assembleRateRes' : l[12],
-                        'qcRes' : l[13],'qcReads' : l[14]
+                        'posQC' : l[3], 'posQCres':l[4], 'negQC' : l[5], 'samplesPollute' : l[6],
+                        'totalReads' : l[7], 'totalReadsRes' : l[8],
+                        'q30' : l[9], 'q30Res' : l[10],
+                        'primerDimers' : l[11], 'primerDimersRes' : l[12],
+                        'assembleRate' : l[13], 'assembleRateRes' : l[14],
+                        'qcRes' : l[15],'qcReads' : l[16], 'finalQCres' : l[2]
                         }
-                    for i, e in enumerate(l[15:]):
+                    for i, e in enumerate(l[17:]):
                         if e != '':
-                            data.update({f'{head[15+i].lower()}' : e})
+                            data.update({f'{head[17+i].lower()}' : e})
                     qc = qcdb[l[1]].query.filter(and_(qcdb[l[1]].sampleBarcode==sampleBarcode, qcdb[l[1]].barcodeGroup==barcodeGroup, qcdb[l[1]].labDate==labdate)).first()
                     if qc:
                         qc.update(**data)

@@ -36,7 +36,7 @@ def updateData(input):
                             'markerYN' : l[10]
                         }
                     top15 = top15db[ig[0]].query.filter(and_(top15db[ig[0]].sampleBarcode==sampleBarcode, top15db[ig[0]].labDate==labdate, \
-                                                             top15db[ig[0]].barcodeGroup==barcodeGroup, top15db[ig[0]].markerReads==l[2])).first()
+                                                             top15db[ig[0]].barcodeGroup==barcodeGroup, top15db[ig[0]].top==l[0], top15db[ig[0]].markerSeq==l[1])).first()
                     if top15:
                         top15.update(**data)
                     else:

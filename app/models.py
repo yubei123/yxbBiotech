@@ -258,6 +258,7 @@ class pipelineMonitor(db.Model):
     __tablename__ = 'pipelineMonitor'
     id = db.Column(db.Integer, primary_key=True)
     libID = db.Column(db.String(64), unique=True, index=True)
+    patientName = db.Column(db.String(10), index=True)
     fqMonitor = db.Column(db.String(20))
     fpMonitor = db.Column(db.String(20))
     pearMonitor = db.Column(db.String(20))

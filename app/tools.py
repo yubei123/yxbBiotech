@@ -13,7 +13,7 @@ from app.models import SampleInfo, Traceableclones
 def generateLibID(data):
     missdata = []
     n = 0
-    for i in ['labDate', 'sampleBarcode', 'barcodeGroup', ' ', 'labUser', 'diagnosisPeriod']:
+    for i in ['labDate', 'sampleBarcode', 'barcodeGroup', 'labSite', 'labUser', 'diagnosisPeriod']:
         if data[i] == '' or data[i] == None:
             missdata.append(i)
         else:
