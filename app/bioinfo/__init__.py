@@ -265,11 +265,26 @@ def getmainclones():
             return jsonify({'msg': 'success', 'code': 200, 'data': res})
         
 ## 生成主克隆信息表格
-@bioinfo.post('getmainclones')
+@bioinfo.post('searchmainclones')
 @jwt_required()
-def getmainclones():
+def searchmainclones():
     data = request.json['data']
-
+    print(data)
+    res = []
+    sampleBarcode = data[0]['sampleBarcode']
+    labDate = data[0]['labDate']
+    patientID = data[0]['patientID']
+    print(sampleBarcode, labDate, patientID)
+    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate, Traceableclones.patientID == patientID)).all()
+    if cloneinfo:
+        for i in cloneinfo:
+            i = i.to_json()
+            print(i)
+            res.append(i)
+        return jsonify({'msg': 'success', 'code': 200, 'data': res})
+    else:
+        return jsonify({'msg': '没有主克隆信息！', 'code': 204})
+        
 ### 获取生成报告信息
 def getsampleinfo(sampleBarcode,diagnosisPeriod):
     sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
@@ -320,7 +335,7 @@ def getreport():
     with open(cofing_json,"w") as f:
         json.dump(sampledata,f)
 
-    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate)).delete()
+    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate, Traceableclones.patientID == patientID)).delete()
     if lab == 'B':
         sitelist = ['IGH', 'IGDH', 'IGK', 'IGK+', 'IGL']
     else:
@@ -375,16 +390,23 @@ def getreport():
         MRD_clones = {}
         XF_clones = {}
         outdata = []
-        cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime != sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime).all()
+        cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime < sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime).all()
         if cloneinfo:
             for i in cloneinfo:
                 MRD_clones[i.markerSeq] = i.cloneIndex
                 if i.markerSeq.startswith('XF'):
                     XF_clones[i.markerSeq] = i.cloneIndex
                 outdata.append({'collection_data':datetime.strftime(i.sampleCollectionTime, '%Y-%m-%d'),
-                                'SEQ_number': i.cloneIndex,'locus': site[i.pcrSite],'CDR3': i.markerSeq,'freq':i.cloneFreq,
+                                'SEQ_number': i.cloneIndex,'locus': i.pcrSite,'CDR3': i.markerSeq,'freq':i.cloneFreq,
                                 'Vgene':i.vGene,'Jgene':i.jGene,'Total_nucleated_cells':i.adjustedCellRatio,
                                 })
+        if XF_clones == {}:
+            n = 1
+        else:
+            max_n = sorted([i.split('-')[-1] for i in XF_clones.values()], reverse=True)
+            print(max_n)
+            n = int(max_n[0][3:])+1
+        print(n)
         for i in data:
             for s in sitelist: 
                 if i['pcrSite'] == s:
@@ -393,15 +415,10 @@ def getreport():
                     elif i['markerSeq'] in XF_clones:
                         cloneIndex = XF_clones[i['markerSeq']]
                     else:
-                        if not XF_clones:
-                            n = 1
-                        else:
-                            max_n = sorted([i.split('-')[-1] for i in XF_clones.values()], reverse=True)
-                            n = int(max_n[0][3:])+1
-                        cloneIndex = f'XF-{site[s]}-{n}'
+                        cloneIndex = f'XF-{site[s]}-SEQ{n}'
                         n += 1
                     outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
-                                    'SEQ_number': MRD_clones[i['markerSeq']],'locus': site[i['pcrSite']],'CDR3': i['markerSeq'],'freq':i['cloneFreq'],
+                                    'SEQ_number': cloneIndex,'locus': site[i['pcrSite']],'CDR3': i['markerSeq'],'freq':i['cloneFreq'],
                                     'Vgene':i['vGene'],'Jgene':i['jGene'],'Total_nucleated_cells':i['adjustedCellRatio'],
                                     })
                     clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
@@ -432,15 +449,51 @@ def getreport():
 def reviewreport():
     data = request.get_json()
     reportdir = data['pdf']
-    print(reportdir)
     if os.path.exists(reportdir):
         dirname = '/'.join(reportdir.split('/')[:-1])
         basename = reportdir.split('/')[-1]
-        ecodename = basename.encode('utf-8')
-        print(dirname, basename)
         response = make_response(send_from_directory(dirname, basename, as_attachment=True))
-        response.headers['Access-Control-Expose-Headers'] = 'X-filename'
-        response.headers["X-filename"] = ecodename
         return response
     else:
         return jsonify({'msg': 'error', 'code': 500})
+    
+## 下载报告
+@bioinfo.post('downloadreport')
+@jwt_required()
+def downloadreport():
+    data = request.json['data']
+    labDate = data['labDate']
+    patientID = data['patientID']
+    patientName = data['patientName']
+    sampleBarcode = data['sampleBarcode']
+    diagnosisPeriod = data['diagnosisPeriod']
+    sampleCollectionTime = data['sampleCollectionTime']
+    reportdir = f'/data/yubei/Biotech/report/{labDate}/{patientID}+{patientName}+{sampleBarcode}+{diagnosisPeriod}+{sampleCollectionTime.split(" ")[0]}.report.pdf'
+    if os.path.exists(reportdir):
+        dirname = '/'.join(reportdir.split('/')[:-1])
+        basename = reportdir.split('/')[-1]
+        response = make_response(send_from_directory(dirname, basename, as_attachment=True))
+        return response
+    else:
+        return jsonify({'msg': 'error', 'code': 500})
+
+## 报告审核
+@bioinfo.post('reportcheck')
+@jwt_required()
+def reportcheck():
+    data = request.json['data']
+    labDate = data['labDate']
+    labSite = data['labSite']
+    labUser = data['labUser']
+    barcodeGroup = data['barcodeGroup']
+    sampleBarcode = data['sampleBarcode']
+    diagnosisPeriod = data['diagnosisPeriod']
+    libID = f'{labDate}-{sampleBarcode}-{barcodeGroup}-{diagnosisPeriod}-{labSite}-{labUser}'
+    sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
+    pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID == libID).first()
+    if sampleinfo:
+        sampleinfo.update(sampleStatus = '已审核')
+    if pipeinfo:
+        pipeinfo.update(reportcheckMonitor = '已审核')
+    db.session.commit()
+    return jsonify({'msg': 'success', 'code': 200})
