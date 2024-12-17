@@ -1,5 +1,5 @@
-from flask import Blueprint, request, jsonify, g
-from app.models import SampleInfo, experimenttohos, qctohos, pipelineMonitor, Traceableclones
+from flask import Blueprint, request, jsonify, g, send_from_directory, make_response
+from app.models import SampleInfo, experimenttohos, qctohos, pipelineMonitor, Traceableclones, pipelineMonitor
 from app import db
 import json, os
 import subprocess
@@ -39,7 +39,7 @@ def searchlibanalysis():
 @jwt_required()
 def getreportsample():
     data = request.get_json()
-    sampleinfo = SampleInfo.query.filter(SampleInfo.sampleStatus != '已出报告').order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
+    sampleinfo = SampleInfo.query.order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
     a = [i.to_json() for i in sampleinfo]
     if not a:
         return jsonify({'msg': 'no data', 'code': 204})
@@ -54,6 +54,48 @@ def getreportsample():
                 i['labDate'] = ''
             res.append(i)
     return jsonify({'msg': 'success', 'code': 200, 'data': {'pages': sampleinfo.pages, 'data':res}})
+
+## 获取之前的报告
+# def getbeforereport(sampleBarcode,diagnosisPeriod):
+#     sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
+#     if sampleinfo:
+#         patientID = sampleinfo.patientID
+#         sampleCollectionTime = sampleinfo.sampleCollectionTime
+#         beforesample = SampleInfo.query.filter(SampleInfo.patientID == patientID, SampleInfo.sampleCollectionTime < sampleCollectionTime).order_by(SampleInfo.sampleCollectionTime.desc()).all()
+#         if beforesample:
+#             for i in beforesample:
+#                 experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == i.sampleBarcode, experimenttohos.diagnosisPeriod == i.diagnosisPeriod).first()
+#                 res = []
+#                 if experinfo:
+#                     CollectionTime = datetime.strftime(experinfo.sampleCollectionTime, '%Y-%m-%d')
+#                     res.append({'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{i.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'})
+#             return res
+#         else:
+#             return []
+
+def getbeforereport(sampleBarcode,diagnosisPeriod):
+    sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
+    if sampleinfo:
+        patientID = sampleinfo.patientID
+        CollectionTime = datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d')
+        experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.diagnosisPeriod == diagnosisPeriod).first()
+        if experinfo:
+            res = [{'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{sampleinfo.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'}]
+            return res
+        else:
+            return []
+
+def getcurrentreport(sampleBarcode,diagnosisPeriod):
+    sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
+    if sampleinfo:
+        patientID = sampleinfo.patientID
+        CollectionTime = datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d')
+        experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.diagnosisPeriod == diagnosisPeriod).first()
+        if experinfo:
+            res = [{'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{sampleinfo.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'}]
+            return res
+        else:
+            return []
 
 ## 获取待出具报告样本实验信息等
 @bioinfo.post('getreportinfo')
@@ -74,7 +116,7 @@ def getreportinfo():
                 qcinfo = qc.query.filter(and_(qc.sampleBarcode == sampleBarcode, qc.labDate == i['labDate'], qc.barcodeGroup == i['barcodeGroup'])).first()
                 i['finalQCres'] = qcinfo.finalQCres
                 res.append(i)
-        return jsonify({'msg': 'success', 'code': 200, 'data': res})
+        return jsonify({'msg': 'success', 'code': 200, 'data':res, 'report': {'currentreport': getcurrentreport(sampleBarcode,diagnosisPeriod), 'beforereport': getbeforereport(sampleBarcode,diagnosisPeriod)}})
 
 ## 获取文库质控信息
 @bioinfo.post('getqcinfo')
@@ -222,6 +264,12 @@ def getmainclones():
         else:
             return jsonify({'msg': 'success', 'code': 200, 'data': res})
         
+## 生成主克隆信息表格
+@bioinfo.post('getmainclones')
+@jwt_required()
+def getmainclones():
+    data = request.json['data']
+
 ### 获取生成报告信息
 def getsampleinfo(sampleBarcode,diagnosisPeriod):
     sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
@@ -257,17 +305,21 @@ def getreport():
     barcodeGroup = data[0]['barcodeGroup']
     patientID = data[0]['patientID']
     sampleCollectionTime = data[0]['sampleCollectionTime']
-    lab, diagnosisTime = data[0]['diagnosisPeriod'].split('_')
-    sampledata = getsampleinfo(sampleBarcode,data[0]['diagnosisPeriod'])
+    diagnosisPeriod = data[0]['diagnosisPeriod']
+    lab, diagnosisTime = diagnosisPeriod.split('_')
+    libID = f'{labDate}-{sampleBarcode}-{barcodeGroup}-{diagnosisPeriod}'
+    sampledata = getsampleinfo(sampleBarcode,diagnosisPeriod)
     sampledata['input_dna'] = inputNG
+    patientName = sampledata['name']
 
     out_dir = f'/data/yubei/Biotech/report/{labDate}'
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    cofing_json = f'{out_dir}/{patientID}+{sampleCollectionTime.split(" ")[0]}.config.json'
-    out_json = f'/{out_dir}/{patientID}+{sampleCollectionTime.split(" ")[0]}.report.json'
+    cofing_json = f'{out_dir}/{patientID}+{patientName}+{sampleBarcode}+{diagnosisPeriod}+{sampleCollectionTime.split(" ")[0]}.config.json'
+    out_json = f'{out_dir}/{patientID}+{patientName}+{sampleBarcode}+{diagnosisPeriod}+{sampleCollectionTime.split(" ")[0]}.report.json'
     with open(cofing_json,"w") as f:
         json.dump(sampledata,f)
+
     cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate)).delete()
     if lab == 'B':
         sitelist = ['IGH', 'IGDH', 'IGK', 'IGK+', 'IGL']
@@ -302,10 +354,16 @@ def getreport():
         sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
                             -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
         if sp.returncode == 0:
-            print('success')
+            subprocess.run(f'rm -rf {cofing_json} {out_json}', shell=True)
+            pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
+            sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
+            if pipeinfo:
+                pipeinfo.update(reportMonitor = '已生成')
+            if sampleinfo:
+                sampleinfo.update(sampleStatus = '已出报告')
+                print(sampleinfo.to_json())
         else:
             print(sp.stderr)
-
         for i in data:
             clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
                 'cloneIndex' : main_clone[i['markerSeq']],'pcrSite' : site[i['pcrSite']], 'markerSeq' : i['markerSeq'],
@@ -357,8 +415,32 @@ def getreport():
         sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
                             -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
         if sp.returncode == 0:
-            print('success')
+            pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
+            sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == data[0]['diagnosisPeriod']).first()
+            if pipeinfo:
+                pipeinfo.update(reportMonitor = '已生成')
+            if sampleinfo:
+                sampleinfo.update(reportMonitor = '已出报告')
         else:
             print(sp.stderr)
     db.session.commit()
     return jsonify({'msg': 'success', 'code': 200})
+
+## 生成报告
+@bioinfo.post('reviewreport')
+@jwt_required()
+def reviewreport():
+    data = request.get_json()
+    reportdir = data['pdf']
+    print(reportdir)
+    if os.path.exists(reportdir):
+        dirname = '/'.join(reportdir.split('/')[:-1])
+        basename = reportdir.split('/')[-1]
+        ecodename = basename.encode('utf-8')
+        print(dirname, basename)
+        response = make_response(send_from_directory(dirname, basename, as_attachment=True))
+        response.headers['Access-Control-Expose-Headers'] = 'X-filename'
+        response.headers["X-filename"] = ecodename
+        return response
+    else:
+        return jsonify({'msg': 'error', 'code': 500})
