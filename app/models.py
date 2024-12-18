@@ -299,3 +299,17 @@ class Traceableclones(db.Model):
     
     def to_json(self):
         return serialize(self)
+    
+class testandcheck(db.Model):
+    __tablename__ = 'testandcheck'
+    id = db.Column(db.Integer, primary_key=True)
+    Name = db.Column(db.String(10), unique=True, index=True)
+    pngPath = db.Column(db.String(200))
+    addtime = db.Column(db.DateTime, default=datetime.now)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+    
+    def to_json(self):
+        return serialize(self)

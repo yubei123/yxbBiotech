@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, g, send_from_directory, make_response
-from app.models import SampleInfo, experimenttohos, qctohos, pipelineMonitor, Traceableclones, pipelineMonitor
+from app.models import SampleInfo, experimenttohos, pipelineMonitor, Traceableclones, pipelineMonitor, testandcheck
 from app import db
 import json, os
 import subprocess
@@ -56,34 +56,34 @@ def getreportsample():
     return jsonify({'msg': 'success', 'code': 200, 'data': {'pages': sampleinfo.pages, 'data':res}})
 
 ## 获取之前的报告
-# def getbeforereport(sampleBarcode,diagnosisPeriod):
-#     sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
-#     if sampleinfo:
-#         patientID = sampleinfo.patientID
-#         sampleCollectionTime = sampleinfo.sampleCollectionTime
-#         beforesample = SampleInfo.query.filter(SampleInfo.patientID == patientID, SampleInfo.sampleCollectionTime < sampleCollectionTime).order_by(SampleInfo.sampleCollectionTime.desc()).all()
-#         if beforesample:
-#             for i in beforesample:
-#                 experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == i.sampleBarcode, experimenttohos.diagnosisPeriod == i.diagnosisPeriod).first()
-#                 res = []
-#                 if experinfo:
-#                     CollectionTime = datetime.strftime(experinfo.sampleCollectionTime, '%Y-%m-%d')
-#                     res.append({'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{i.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'})
-#             return res
-#         else:
-#             return []
-
 def getbeforereport(sampleBarcode,diagnosisPeriod):
     sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
     if sampleinfo:
         patientID = sampleinfo.patientID
-        CollectionTime = datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d')
-        experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.diagnosisPeriod == diagnosisPeriod).first()
-        if experinfo:
-            res = [{'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{sampleinfo.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'}]
+        sampleCollectionTime = sampleinfo.sampleCollectionTime
+        beforesample = SampleInfo.query.filter(SampleInfo.patientID == patientID, SampleInfo.sampleCollectionTime < sampleCollectionTime).order_by(SampleInfo.sampleCollectionTime.desc()).all()
+        if beforesample:
+            for i in beforesample:
+                experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == i.sampleBarcode, experimenttohos.diagnosisPeriod == i.diagnosisPeriod).first()
+                res = []
+                if experinfo:
+                    CollectionTime = datetime.strftime(experinfo.sampleCollectionTime, '%Y-%m-%d')
+                    res.append({'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{i.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'})
             return res
         else:
             return []
+
+# def getbeforereport(sampleBarcode,diagnosisPeriod):
+#     sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
+#     if sampleinfo:
+#         patientID = sampleinfo.patientID
+#         CollectionTime = datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d')
+#         experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.diagnosisPeriod == diagnosisPeriod).first()
+#         if experinfo:
+#             res = [{'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{sampleinfo.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'}]
+#             return res
+#         else:
+#             return []
 
 def getcurrentreport(sampleBarcode,diagnosisPeriod):
     sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
@@ -209,6 +209,9 @@ def gettop15info():
 @jwt_required()
 def getmainclones():
     data = request.json['data']
+    site = {'TRBVJ':'TRB', 'TRBDJ':'TRB+', 'IGH':'IGH', 'IGDH':'IGDH', 'IGL':'IGL', 'TRG':'TRG'}
+    tester = testandcheck.query.all()
+    tester = [i.Name for i in tester]
     with top15app.app_context():
         res = []
         for i in data:
@@ -256,15 +259,16 @@ def getmainclones():
                 if top15info:
                     for j in top15info:
                         j = j.to_json()
-                        j['pcrSite'] = pcrSite
+                        # j['pcrSite'] = pcrSite
+                        j['pcrSite'] = site[pcrSite]
                         j['diagnosisPeriod'] = i['diagnosisPeriod']
                         res.append(j)
         if res == []:
             return jsonify({'msg': '没有检测到主克隆！', 'code': 205})
         else:
-            return jsonify({'msg': 'success', 'code': 200, 'data': res})
+            return jsonify({'msg': 'success', 'code': 200, 'data': res, 'tester':tester})
         
-## 生成主克隆信息表格
+## 查看主克隆信息表格
 @bioinfo.post('searchmainclones')
 @jwt_required()
 def searchmainclones():
@@ -286,9 +290,12 @@ def searchmainclones():
         return jsonify({'msg': '没有主克隆信息！', 'code': 204})
         
 ### 获取生成报告信息
-def getsampleinfo(sampleBarcode,diagnosisPeriod):
+def getsampleinfo(sampleBarcode,diagnosisPeriod,tester,reviewer):
     sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
     data = {}
+    test = testandcheck.query.filter(testandcheck.Name == tester).first().pngPath
+    review = testandcheck.query.filter(testandcheck.Name == reviewer).first().pngPath
+    
     if sampleinfo:
         data = {
                 'name':sampleinfo.patientName, 
@@ -315,6 +322,8 @@ def getreport():
     site = {'IGH':'IGH','IGDH':'IGDH','IGK':'IGK', 'IGK+':'IGK+','IGL':'IGL','TRBVJ':'TRB', 'TRBDJ':'TRB+','TRD':'TRD','TRD+':'TRD+','TRG':'TRG'}
     data = request.json['data']
     inputNG = request.json['inputNG']
+    tester = data['tester']
+    reviewer = data['reviewer']
     sampleBarcode = data[0]['sampleBarcode']
     labDate = data[0]['labDate']
     barcodeGroup = data[0]['barcodeGroup']
@@ -323,7 +332,7 @@ def getreport():
     diagnosisPeriod = data[0]['diagnosisPeriod']
     lab, diagnosisTime = diagnosisPeriod.split('_')
     libID = f'{labDate}-{sampleBarcode}-{barcodeGroup}-{diagnosisPeriod}'
-    sampledata = getsampleinfo(sampleBarcode,diagnosisPeriod)
+    sampledata = getsampleinfo(sampleBarcode,diagnosisPeriod,tester,reviewer)
     sampledata['input_dna'] = inputNG
     patientName = sampledata['name']
 
@@ -369,7 +378,7 @@ def getreport():
         sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
                             -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
         if sp.returncode == 0:
-            subprocess.run(f'rm -rf {cofing_json} {out_json}', shell=True)
+            # subprocess.run(f'rm -rf {cofing_json} {out_json}', shell=True)
             pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
             sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
             if pipeinfo:
@@ -381,7 +390,7 @@ def getreport():
             print(sp.stderr)
         for i in data:
             clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
-                'cloneIndex' : main_clone[i['markerSeq']],'pcrSite' : site[i['pcrSite']], 'markerSeq' : i['markerSeq'],
+                'cloneIndex' : main_clone[i['markerSeq']],'pcrSite' : i['pcrSite'], 'markerSeq' : i['markerSeq'],
                 'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
                 'adjustedCellRatio' : i['adjustedCellRatio']}
             clones = Traceableclones(**clone)
@@ -406,7 +415,6 @@ def getreport():
             max_n = sorted([i.split('-')[-1] for i in XF_clones.values()], reverse=True)
             print(max_n)
             n = int(max_n[0][3:])+1
-        print(n)
         for i in data:
             for s in sitelist: 
                 if i['pcrSite'] == s:
@@ -418,11 +426,11 @@ def getreport():
                         cloneIndex = f'XF-{site[s]}-SEQ{n}'
                         n += 1
                     outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
-                                    'SEQ_number': cloneIndex,'locus': site[i['pcrSite']],'CDR3': i['markerSeq'],'freq':i['cloneFreq'],
+                                    'SEQ_number': cloneIndex,'locus': i['pcrSite'],'CDR3': i['markerSeq'],'freq':i['cloneFreq'],
                                     'Vgene':i['vGene'],'Jgene':i['jGene'],'Total_nucleated_cells':i['adjustedCellRatio'],
                                     })
                     clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
-                        'cloneIndex' : cloneIndex, 'pcrSite' : site[i['pcrSite']], 'markerSeq' : i['markerSeq'],
+                        'cloneIndex' : cloneIndex, 'pcrSite' : i['pcrSite'], 'markerSeq' : i['markerSeq'],
                         'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
                         'adjustedCellRatio' : i['adjustedCellRatio']}
                     clones = Traceableclones(**clone)
@@ -443,7 +451,7 @@ def getreport():
     db.session.commit()
     return jsonify({'msg': 'success', 'code': 200})
 
-## 生成报告
+## 查看报告
 @bioinfo.post('reviewreport')
 @jwt_required()
 def reviewreport():
