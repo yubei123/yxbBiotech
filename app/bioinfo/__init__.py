@@ -187,10 +187,10 @@ def gettop15info():
                     i = i.to_json()
                     i['top'] = f'{pcrSite}_{i["top"]}'
                     res.append(i)
-        # if res == []:
-        #     return jsonify({'msg': 'no data', 'code': 204})
-        # else:
-        return jsonify({'msg': 'success', 'code': 200, 'data': res})
+        if res == []:
+            return jsonify({'msg': 'no data', 'code': 204})
+        else:
+            return jsonify({'msg': 'success', 'code': 200, 'data': res})
 
 ## 生成主克隆信息表格
 @bioinfo.post('getmainclones')
@@ -247,7 +247,6 @@ def getmainclones():
                 if top15info:
                     for j in top15info:
                         j = j.to_json()
-                        # j['pcrSite'] = pcrSite
                         j['pcrSite'] = site[pcrSite]
                         j['diagnosisPeriod'] = i['diagnosisPeriod']
                         res.append(j)
@@ -265,12 +264,10 @@ def searchmainclones():
     sampleBarcode = data[0]['sampleBarcode']
     labDate = data[0]['labDate']
     patientID = data[0]['patientID']
-    print(sampleBarcode, labDate, patientID)
     cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate, Traceableclones.patientID == patientID)).all()
     if cloneinfo:
         for i in cloneinfo:
             i = i.to_json()
-            print(i)
             res.append(i)
         return jsonify({'msg': 'success', 'code': 200, 'data': res})
     else:
@@ -307,134 +304,147 @@ def getsampleinfo(sampleBarcode,diagnosisPeriod,tester,reviewer):
 def getreport():
     site = {'IGH':'IGH','IGDH':'IGDH','IGK':'IGK', 'IGK+':'IGK+','IGL':'IGL','TRBVJ':'TRB', 'TRBDJ':'TRB+','TRD':'TRD','TRD+':'TRD+','TRG':'TRG'}
     data = request.json['data']
-    inputNG = request.json['inputNG']
-    tester = request.json['tester']
-    reviewer = request.json['reviewer']
-    sampleBarcode = data[0]['sampleBarcode']
-    labDate = data[0]['labDate']
-    barcodeGroup = data[0]['barcodeGroup']
-    patientID = data[0]['patientID']
-    sampleCollectionTime = data[0]['sampleCollectionTime']
-    diagnosisPeriod = data[0]['diagnosisPeriod']
-    lab, diagnosisTime = diagnosisPeriod.split('_')
-    libID = f'{labDate}-{sampleBarcode}-{barcodeGroup}-{diagnosisPeriod}'
-    sampledata = getsampleinfo(sampleBarcode,diagnosisPeriod,tester,reviewer)
-    sampledata['input_dna'] = inputNG
-    patientName = sampledata['name']
+    try:
+        inputNG = request.json['inputNG']
+        tester = request.json['tester']
+        reviewer = request.json['reviewer']
+        sampleBarcode = data[0]['sampleBarcode']
+        labDate = data[0]['labDate']
+        barcodeGroup = data[0]['barcodeGroup']
+        patientID = data[0]['patientID']
+        sampleCollectionTime = data[0]['sampleCollectionTime']
+        diagnosisPeriod = data[0]['diagnosisPeriod']
+        lab, diagnosisTime = diagnosisPeriod.split('_')
+        libID = f'{labDate}-{sampleBarcode}-{barcodeGroup}-{diagnosisPeriod}'
+        sampledata = getsampleinfo(sampleBarcode,diagnosisPeriod,tester,reviewer)
+        sampledata['input_dna'] = inputNG
+        patientName = sampledata['name']
 
-    out_dir = f'/data/yubei/Biotech/report/{labDate}'
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    cofing_json = f'{out_dir}/{patientID}+{patientName}+{sampleBarcode}+{diagnosisPeriod}+{sampleCollectionTime.split(" ")[0]}.config.json'
-    out_json = f'{out_dir}/{patientID}+{patientName}+{sampleBarcode}+{diagnosisPeriod}+{sampleCollectionTime.split(" ")[0]}.report.json'
-    with open(cofing_json,"w") as f:
-        json.dump(sampledata,f)
+        out_dir = f'/data/yubei/Biotech/report/{labDate}'
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        cofing_json = f'{out_dir}/{patientID}+{patientName}+{sampleBarcode}+{diagnosisPeriod}+{sampleCollectionTime.split(" ")[0]}.config.json'
+        out_json = f'{out_dir}/{patientID}+{patientName}+{sampleBarcode}+{diagnosisPeriod}+{sampleCollectionTime.split(" ")[0]}.report.json'
+        with open(cofing_json,"w") as f:
+            json.dump(sampledata,f)
 
-    cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate, Traceableclones.patientID == patientID)).delete()
-    if lab == 'B':
-        sitelist = ['IGH', 'IGDH', 'IGK', 'IGK+', 'IGL']
-    else:
-        sitelist = ['TRBVJ', 'TRBDJ', 'TRD', 'TRD+', 'TRG']
-    if diagnosisTime == '0':
-        main_clone = {}
-        for i in data:
-            main_clone[i['markerSeq']] = i['pcrSite']
-        n = 1
-        outdata = []
-        for s in sitelist:
-            top15 = top15db[s]
-            with top15app.app_context():
-                top15info = top15.query.filter(and_(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup)).all()
-                if top15info:
-                    for j in top15info:
-                        if j.top == 'top11':
-                            break
-                        if j.markerSeq in main_clone.keys():
-                            main_clone[j.markerSeq] = f'{site[s]}-SEQ{n}'
-                            SEQ_number = f'{site[s]}-SEQ{n}'
-                            n += 1
-                        else:
-                            SEQ_number = '-'
-                        outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
-                                        'SEQ_number': SEQ_number,'locus': site[s],'CDR3': j.markerSeq,'freq':j.cloneFreq,
-                                        'Vgene':j.vGene,'Jgene':j.jGene,'Total_nucleated_cells':j.adjustedCellRatio,
-                                        })
-        with open(out_json,"w") as f:
-            json.dump(outdata,f)
-        sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/yubei/Biotech_report/report-1218-v1.pyc \
-                            -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
-        if sp.returncode == 0:
-            subprocess.run(f'rm -rf {cofing_json} {out_json}', shell=True)
-            pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
-            sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
-            if pipeinfo:
-                pipeinfo.update(reportMonitor = '已生成', reportcheckMonitor = '未审核')
-            if sampleinfo:
-                sampleinfo.update(sampleStatus = '已出报告')
+        cloneinfo = Traceableclones.query.filter(and_(Traceableclones.sampleBarcode == sampleBarcode, Traceableclones.labDate == labDate, Traceableclones.patientID == patientID)).delete()
+        if lab == 'B':
+            sitelist = ['IGH', 'IGDH', 'IGK', 'IGK+', 'IGL']
         else:
-            print(sp.stderr)
-        for i in data:
-            clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
-                'cloneIndex' : main_clone[i['markerSeq']],'pcrSite' : i['pcrSite'], 'markerSeq' : i['markerSeq'],
-                'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
-                'adjustedCellRatio' : i['adjustedCellRatio']}
-            clones = Traceableclones(**clone)
-            db.session.add(clones)
-    else:
-        MRD_clones = {}
-        XF_clones = {}
-        outdata = []
-        cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime < sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime).all()
-        if cloneinfo:
-            for i in cloneinfo:
-                MRD_clones[i.markerSeq] = i.cloneIndex
-                if i.markerSeq.startswith('XF'):
-                    XF_clones[i.markerSeq] = i.cloneIndex
-                outdata.append({'collection_data':datetime.strftime(i.sampleCollectionTime, '%Y-%m-%d'),
-                                'SEQ_number': i.cloneIndex,'locus': i.pcrSite,'CDR3': i.markerSeq,'freq':i.cloneFreq,
-                                'Vgene':i.vGene,'Jgene':i.jGene,'Total_nucleated_cells':i.adjustedCellRatio,
-                                })
-        if XF_clones == {}:
+            sitelist = ['TRBVJ', 'TRBDJ', 'TRD', 'TRD+', 'TRG']
+        if diagnosisTime == '0':
+            main_clone = {}
+            for i in data:
+                main_clone[i['markerSeq']] = i['pcrSite']
             n = 1
+            outdata = []
+            for s in sitelist:
+                top15 = top15db[s]
+                with top15app.app_context():
+                    top15info = top15.query.filter(and_(top15.sampleBarcode == sampleBarcode, top15.labDate == labDate, top15.barcodeGroup == barcodeGroup)).all()
+                    if top15info:
+                        for j in top15info:
+                            if j.top == 'top11':
+                                break
+                            if j.markerSeq in main_clone.keys():
+                                main_clone[j.markerSeq] = f'{site[s]}-SEQ{n}'
+                                SEQ_number = f'{site[s]}-SEQ{n}'
+                                n += 1
+                            else:
+                                SEQ_number = '-'
+                            outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
+                                            'SEQ_number': SEQ_number,'locus': site[s],'CDR3': j.markerSeq,'freq':j.cloneFreq,
+                                            'Vgene':j.vGene,'Jgene':j.jGene,'Total_nucleated_cells':j.adjustedCellRatio,
+                                            })
+            with open(out_json,"w") as f:
+                json.dump(outdata,f)
+            sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/yubei/Biotech_report/report-1218-v1.pyc \
+                                -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
+            if sp.returncode == 0:
+                subprocess.run(f'rm -rf {cofing_json} {out_json}', shell=True)
+                pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
+                sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
+                if pipeinfo:
+                    pipeinfo.update(reportMonitor = '已生成', reportcheckMonitor = '未审核')
+                if sampleinfo:
+                    sampleinfo.update(sampleStatus = '已出报告')
+            else:
+                print(sp.stderr)
+            for i in data:
+                clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
+                    'cloneIndex' : main_clone[i['markerSeq']],'pcrSite' : i['pcrSite'], 'markerSeq' : i['markerSeq'],
+                    'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
+                    'adjustedCellRatio' : i['adjustedCellRatio']}
+                clones = Traceableclones(**clone)
+                db.session.add(clones)
         else:
-            max_n = sorted([i.split('-')[-1] for i in XF_clones.values()], reverse=True)
-            print(max_n)
-            n = int(max_n[0][3:])+1
-        for i in data:
-            for s in sitelist: 
-                if i['pcrSite'] == s:
-                    if i['markerSeq'] in MRD_clones:
-                        cloneIndex = MRD_clones[i['markerSeq']]
-                    elif i['markerSeq'] in XF_clones:
-                        cloneIndex = XF_clones[i['markerSeq']]
-                    else:
-                        cloneIndex = f'XF-{site[s]}-SEQ{n}'
-                        n += 1
-                    outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
-                                    'SEQ_number': cloneIndex,'locus': i['pcrSite'],'CDR3': i['markerSeq'],'freq':i['cloneFreq'],
-                                    'Vgene':i['vGene'],'Jgene':i['jGene'],'Total_nucleated_cells':i['adjustedCellRatio'],
+            MRD_clones = {}
+            XF_clones = {}
+            outdata = []
+            cloneinfo = Traceableclones.query.filter(and_(Traceableclones.patientID == patientID, Traceableclones.sampleCollectionTime < sampleCollectionTime)).order_by(Traceableclones.sampleCollectionTime).all()
+            if cloneinfo:
+                for i in cloneinfo:
+                    MRD_clones[i.markerSeq] = i.cloneIndex
+                    if i.markerSeq.startswith('XF'):
+                        XF_clones[i.markerSeq] = i.cloneIndex
+                    outdata.append({'collection_data':datetime.strftime(i.sampleCollectionTime, '%Y-%m-%d'),
+                                    'SEQ_number': i.cloneIndex,'locus': i.pcrSite,'CDR3': i.markerSeq,'freq':i.cloneFreq,
+                                    'Vgene':i.vGene,'Jgene':i.jGene,'Total_nucleated_cells':i.adjustedCellRatio,
                                     })
-                    clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
-                        'cloneIndex' : cloneIndex, 'pcrSite' : i['pcrSite'], 'markerSeq' : i['markerSeq'],
-                        'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
-                        'adjustedCellRatio' : i['adjustedCellRatio']}
-                    clones = Traceableclones(**clone)
-                    db.session.add(clones)
-        with open(out_json,"w") as f:
-            json.dump(outdata,f)
-        sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
-                            -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
-        if sp.returncode == 0:
-            pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
-            sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == data[0]['diagnosisPeriod']).first()
-            if pipeinfo:
-                pipeinfo.update(reportMonitor = '已生成', reportcheckMonitor = '未审核')
-            if sampleinfo:
-                sampleinfo.update(reportMonitor = '已出报告')
-        else:
-            print(sp.stderr)
-    db.session.commit()
-    return jsonify({'msg': 'success', 'code': 200})
+            if XF_clones == {}:
+                n = 1
+            else:
+                max_n = sorted([i.split('-')[-1] for i in XF_clones.values()], reverse=True)
+                print(max_n)
+                n = int(max_n[0][3:])+1
+            for i in data:
+                for s in sitelist: 
+                    if i['pcrSite'] == s:
+                        if i['markerSeq'] in MRD_clones:
+                            cloneIndex = MRD_clones[i['markerSeq']]
+                        elif i['markerSeq'] in XF_clones:
+                            cloneIndex = XF_clones[i['markerSeq']]
+                        else:
+                            cloneIndex = f'XF-{site[s]}-SEQ{n}'
+                            n += 1
+                        outdata.append({'collection_data':sampleCollectionTime.split(' ')[0],
+                                        'SEQ_number': cloneIndex,'locus': i['pcrSite'],'CDR3': i['markerSeq'],'freq':i['cloneFreq'],
+                                        'Vgene':i['vGene'],'Jgene':i['jGene'],'Total_nucleated_cells':i['adjustedCellRatio'],
+                                        })
+                        clone = {'sampleBarcode' : sampleBarcode,'labDate' : labDate,'patientID' : patientID,'sampleCollectionTime' : sampleCollectionTime.split(' ')[0],
+                            'cloneIndex' : cloneIndex, 'pcrSite' : i['pcrSite'], 'markerSeq' : i['markerSeq'],
+                            'markerReads' : i['markerReads'],'cloneFreq' : i['cloneFreq'],'vGene' : i['vGene'],'jGene' : i['jGene'],
+                            'adjustedCellRatio' : i['adjustedCellRatio']}
+                        clones = Traceableclones(**clone)
+                        db.session.add(clones)
+            with open(out_json,"w") as f:
+                json.dump(outdata,f)
+            sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
+                                -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
+            if sp.returncode == 0:
+                pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
+                sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == data[0]['diagnosisPeriod']).first()
+                if pipeinfo:
+                    pipeinfo.update(reportMonitor = '已生成', reportcheckMonitor = '未审核')
+                if sampleinfo:
+                    sampleinfo.update(reportMonitor = '已出报告')
+            else:
+                print(sp.stderr)
+        db.session.commit()
+        return jsonify({'msg': 'success', 'code': 200})
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg': 'error', 'code': 500})
+
+## 生成报告
+@bioinfo.post('generatereport')
+@jwt_required()
+def generatereport():
+    data = request.json['data']
+    try:
+        libID = data['libID']
 
 ## 查看报告
 @bioinfo.post('reviewreport')
@@ -476,18 +486,23 @@ def downloadreport():
 @jwt_required()
 def reportcheck():
     data = request.json['data']
-    labDate = data['labDate']
-    labSite = data['labSite']
-    labUser = data['labUser']
-    barcodeGroup = data['barcodeGroup']
-    sampleBarcode = data['sampleBarcode']
-    diagnosisPeriod = data['diagnosisPeriod']
-    libID = f'{labDate}-{sampleBarcode}-{barcodeGroup}-{diagnosisPeriod}-{labSite}-{labUser}'
-    sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
-    pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID == libID).first()
-    if sampleinfo:
-        sampleinfo.update(sampleStatus = '已审核')
-    if pipeinfo:
-        pipeinfo.update(reportcheckMonitor = '已审核')
-    db.session.commit()
-    return jsonify({'msg': 'success', 'code': 200})
+    try:
+        labDate = data['labDate']
+        labSite = data['labSite']
+        labUser = data['labUser']
+        barcodeGroup = data['barcodeGroup']
+        sampleBarcode = data['sampleBarcode']
+        diagnosisPeriod = data['diagnosisPeriod']
+        libID = f'{labDate}-{sampleBarcode}-{barcodeGroup}-{diagnosisPeriod}-{labSite}-{labUser}'
+        sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod)).first()
+        pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID == libID).first()
+        if sampleinfo:
+            sampleinfo.update(sampleStatus = '已审核')
+        if pipeinfo:
+            pipeinfo.update(reportcheckMonitor = '已审核')
+        db.session.commit()
+        return jsonify({'msg': 'success', 'code': 200})
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg': 'error', 'code': 500})
