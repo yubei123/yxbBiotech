@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, g, send_from_directory, make_response
 from app.models import SampleInfo, experimenttohos, pipelineMonitor, Traceableclones, pipelineMonitor, testandcheck
 from app import db
-import json, os
+import json, os, glob
 import subprocess
 from app.utils import changeUTCtoLocal, addOneday
 from flask_jwt_extended import jwt_required
@@ -67,23 +67,11 @@ def getbeforereport(sampleBarcode,diagnosisPeriod):
                 experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == i.sampleBarcode, experimenttohos.diagnosisPeriod == i.diagnosisPeriod).first()
                 res = []
                 if experinfo:
-                    CollectionTime = datetime.strftime(experinfo.sampleCollectionTime, '%Y-%m-%d')
-                    res.append({'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{i.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'})
+                    CollectionTime = datetime.strftime(i.sampleCollectionTime, '%Y-%m-%d')
+                    res.append({'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{i.patientName}+{i.sampleBarcode}+{i.diagnosisPeriod}+{CollectionTime}.report.pdf'})
             return res
         else:
             return []
-
-# def getbeforereport(sampleBarcode,diagnosisPeriod):
-#     sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
-#     if sampleinfo:
-#         patientID = sampleinfo.patientID
-#         CollectionTime = datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d')
-#         experinfo = experimenttohos.query.filter(experimenttohos.sampleBarcode == sampleBarcode, experimenttohos.diagnosisPeriod == diagnosisPeriod).first()
-#         if experinfo:
-#             res = [{'sampleCollectionTime':CollectionTime, 'report': f'/data/yubei/Biotech/report/{experinfo.labDate}/{patientID}+{sampleinfo.patientName}+{sampleBarcode}+{diagnosisPeriod}+{CollectionTime}.report.pdf'}]
-#             return res
-#         else:
-#             return []
 
 def getcurrentreport(sampleBarcode,diagnosisPeriod):
     sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
@@ -273,7 +261,6 @@ def getmainclones():
 @jwt_required()
 def searchmainclones():
     data = request.json['data']
-    print(data)
     res = []
     sampleBarcode = data[0]['sampleBarcode']
     labDate = data[0]['labDate']
@@ -295,7 +282,6 @@ def getsampleinfo(sampleBarcode,diagnosisPeriod,tester,reviewer):
     data = {}
     test = testandcheck.query.filter(testandcheck.Name == tester).first().pngPath
     review = testandcheck.query.filter(testandcheck.Name == reviewer).first().pngPath
-    
     if sampleinfo:
         data = {
                 'name':sampleinfo.patientName, 
@@ -309,8 +295,8 @@ def getsampleinfo(sampleBarcode,diagnosisPeriod,tester,reviewer):
                 'doctor' : sampleinfo.doctorName,
                 'diagnosis' : sampleinfo.clinicalDiagnosis,
                 'submission_time' : datetime.strftime(sampleinfo.sampleCollectionTime, '%Y-%m-%d') if sampleinfo.sampleCollectionTime != None else '',
-                'jyz_name_png': 'images/XQY.jpg',
-                'shz_name_png': 'images/PHY.png',
+                'jyz_name_png': f'images/{test}.png',
+                'shz_name_png': f'images/{review}.png',
                 'chapters_png': 'images/hst.png'
                 }
     return data
@@ -322,8 +308,8 @@ def getreport():
     site = {'IGH':'IGH','IGDH':'IGDH','IGK':'IGK', 'IGK+':'IGK+','IGL':'IGL','TRBVJ':'TRB', 'TRBDJ':'TRB+','TRD':'TRD','TRD+':'TRD+','TRG':'TRG'}
     data = request.json['data']
     inputNG = request.json['inputNG']
-    tester = data['tester']
-    reviewer = data['reviewer']
+    tester = request.json['tester']
+    reviewer = request.json['reviewer']
     sampleBarcode = data[0]['sampleBarcode']
     labDate = data[0]['labDate']
     barcodeGroup = data[0]['barcodeGroup']
@@ -375,17 +361,16 @@ def getreport():
                                         })
         with open(out_json,"w") as f:
             json.dump(outdata,f)
-        sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/0_html_report/0_Report_scripts/report-1213-v1.pyc \
+        sp = subprocess.run(f'/opt/miniconda/envs/myenv_report_lqj/bin/python /data/yubei/Biotech_report/report-1218-v1.pyc \
                             -c {cofing_json} -i {out_json} -o {out_dir}', shell=True, stderr=subprocess.PIPE)
         if sp.returncode == 0:
-            # subprocess.run(f'rm -rf {cofing_json} {out_json}', shell=True)
+            subprocess.run(f'rm -rf {cofing_json} {out_json}', shell=True)
             pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
             sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == diagnosisPeriod).first()
             if pipeinfo:
-                pipeinfo.update(reportMonitor = '已生成')
+                pipeinfo.update(reportMonitor = '已生成', reportcheckMonitor = '未审核')
             if sampleinfo:
                 sampleinfo.update(sampleStatus = '已出报告')
-                print(sampleinfo.to_json())
         else:
             print(sp.stderr)
         for i in data:
@@ -443,7 +428,7 @@ def getreport():
             pipeinfo = pipelineMonitor.query.filter(pipelineMonitor.libID.contains(libID)).first()
             sampleinfo = SampleInfo.query.filter(SampleInfo.sampleBarcode == sampleBarcode, SampleInfo.diagnosisPeriod == data[0]['diagnosisPeriod']).first()
             if pipeinfo:
-                pipeinfo.update(reportMonitor = '已生成')
+                pipeinfo.update(reportMonitor = '已生成', reportcheckMonitor = '未审核')
             if sampleinfo:
                 sampleinfo.update(reportMonitor = '已出报告')
         else:
@@ -457,6 +442,7 @@ def getreport():
 def reviewreport():
     data = request.get_json()
     reportdir = data['pdf']
+    print(reportdir)
     if os.path.exists(reportdir):
         dirname = '/'.join(reportdir.split('/')[:-1])
         basename = reportdir.split('/')[-1]
