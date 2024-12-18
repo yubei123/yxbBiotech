@@ -88,7 +88,6 @@ def uploadsampleinfo():
         for k,v in pendingsample_project.items():
             info = pendingSample.query.filter(and_(pendingSample.sampleBarcode==k, pendingSample.projectName==v)).first()
             info_list.append(info.to_json())
-        print(info_list)
         return jsonify({'msg':'success!', 'code':200, 'data':info_list})
     except Exception as e:
         print(e)
@@ -155,7 +154,6 @@ def getsampleinfo():
 def searchsampleinfo():
     data = request.get_json()
     n = 0
-    print(data)
     query = SampleInfo.query
     if data['sampleBarcode'] != '':
         query = query.filter(SampleInfo.sampleBarcode == data['sampleBarcode'])

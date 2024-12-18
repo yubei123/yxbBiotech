@@ -39,7 +39,7 @@ def searchlibanalysis():
 @jwt_required()
 def getreportsample():
     data = request.get_json()
-    sampleinfo = SampleInfo.query.order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
+    sampleinfo = SampleInfo.query.filter(SampleInfo.sampleStatus != '已退项').order_by(SampleInfo.addtime.desc()).paginate(page=data['pagenum'], per_page=data['pagesize'])
     a = [i.to_json() for i in sampleinfo]
     if not a:
         return jsonify({'msg': 'no data', 'code': 204})
@@ -437,14 +437,6 @@ def getreport():
         print(e)
         db.session.rollback()
         return jsonify({'msg': 'error', 'code': 500})
-
-## 生成报告
-@bioinfo.post('generatereport')
-@jwt_required()
-def generatereport():
-    data = request.json['data']
-    try:
-        libID = data['libID']
 
 ## 查看报告
 @bioinfo.post('reviewreport')

@@ -19,73 +19,73 @@ def inputexperinfo():
     today = datetime.now().strftime('%Y%m%d')
     data = request.json['data']
     # print(data)
-    # try:
-    libID_list = {}
-    experID = addexperimentID.query.all()
-    experID_num = 0
-    if not experID:
-        experID_num = 1
-    else:
-        experIDs = experID[-1].experimentIDs
-        if today in experIDs:
-            experID_num = int(experIDs[-4:]) + 1
-        else:
+    try:
+        libID_list = {}
+        experID = addexperimentID.query.all()
+        experID_num = 0
+        if not experID:
             experID_num = 1
-    experID_list = []
-    labsample = {}
-    ## 导入实验信息，判断是否存在对应的内参批次信息，不存在不允许更新
-    for i in data:
-        qcinfo = qctohos.query.filter(qctohos.qcDate == i['qcDate']).first()
-        if not qcinfo and '空白' not in i['patientName']:
-            return jsonify({'msg': f'没有 {i["qcDate"]} 批次的内参信息，请先导入！', 'code': 204})
-        ## 如果导入的实验信息中不存在实验编号，则重新生成新的实验编号并添加新的实验信息
-        if generateLibID(i)['msg'] == 'success':
-            labsample[i['sampleBarcode']] = i['diagnosisPeriod']
-            libID_list[generateLibID(i)['libID']] = i['patientName']
-        if 'experimentID' not in i:
-            i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
-            experID_list.append(i['experimentID'])
-            exp = experimenttohos(**i)
-            db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
-            experID_num += 1
-            db.session.add(exp)
-        ## 如果导入的实验信息中存在实验编号，则根据对应实验编号对实验信息进行更新
         else:
-            if i['experimentID'] == '':
+            experIDs = experID[-1].experimentIDs
+            if today in experIDs:
+                experID_num = int(experIDs[-4:]) + 1
+            else:
+                experID_num = 1
+        experID_list = []
+        labsample = {}
+        ## 导入实验信息，判断是否存在对应的内参批次信息，不存在不允许更新
+        for i in data:
+            qcinfo = qctohos.query.filter(qctohos.qcDate == i['qcDate']).first()
+            if not qcinfo and '空白' not in i['patientName']:
+                return jsonify({'msg': f'没有 {i["qcDate"]} 批次的内参信息，请先导入！', 'code': 204})
+            ## 如果导入的实验信息中不存在实验编号，则重新生成新的实验编号并添加新的实验信息
+            if generateLibID(i)['msg'] == 'success':
+                labsample[i['sampleBarcode']] = i['diagnosisPeriod']
+                libID_list[generateLibID(i)['libID']] = i['patientName']
+            if 'experimentID' not in i:
                 i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
                 experID_list.append(i['experimentID'])
                 exp = experimenttohos(**i)
                 db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
                 experID_num += 1
                 db.session.add(exp)
+            ## 如果导入的实验信息中存在实验编号，则根据对应实验编号对实验信息进行更新
             else:
-                exp = experimenttohos.query.filter(experimenttohos.experimentID==i['experimentID']).first()
-                experID_list.append(i['experimentID'])
-                if exp:
-                    exp.update(**i)
-    for k,v in labsample.items():
-        sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==k, SampleInfo.diagnosisPeriod == v)).first()
-        if sampleinfo:
-            sampleinfo.update(sampleStatus='已实验')
-    for i,v in libID_list.items():
-        sampleMonitor.delay(i)
-        libID = pipelineMonitor.query.filter(pipelineMonitor.libID == i).first()
-        if libID:
-            libID.update(libID=i)
-        else:
-            libID = pipelineMonitor(**{'libID':i, 'patientName':v,'fqMonitor':'不存在', 'fpMonitor':'未开始', 'pearMonitor':'未开始', 'top15Monitor':'未开始', 
-                                       'qcMonitor':'未开始', 'reportMonitor':'未生成', 'reportcheckMonitor':'未审核'})
-            db.session.add(libID)
-    db.session.commit()
-    experinfo_list = []
-    for i in experID_list:
-        experinfo = experimenttohos.query.filter(experimenttohos.experimentID == i).first()
-        experinfo_list.append(experinfo.to_json())
-    return jsonify({'msg': 'success', 'code': 200, 'data':experinfo_list})
-    # except Exception as e:
-    #     print(e)
-    #     db.session.rollback()
-    #     return jsonify({'msg': 'fail', 'code': 500})
+                if i['experimentID'] == '':
+                    i['experimentID'] = f'{today}_{str(experID_num).zfill(4)}'
+                    experID_list.append(i['experimentID'])
+                    exp = experimenttohos(**i)
+                    db.session.add(addexperimentID(**{'experimentIDs':f'{today}_{str(experID_num).zfill(4)}'}))
+                    experID_num += 1
+                    db.session.add(exp)
+                else:
+                    exp = experimenttohos.query.filter(experimenttohos.experimentID==i['experimentID']).first()
+                    experID_list.append(i['experimentID'])
+                    if exp:
+                        exp.update(**i)
+        for k,v in labsample.items():
+            sampleinfo = SampleInfo.query.filter(and_(SampleInfo.sampleBarcode==k, SampleInfo.diagnosisPeriod == v)).first()
+            if sampleinfo:
+                sampleinfo.update(sampleStatus='已实验')
+        for i,v in libID_list.items():
+            sampleMonitor.delay(i)
+            libID = pipelineMonitor.query.filter(pipelineMonitor.libID == i).first()
+            if libID:
+                libID.update(libID=i)
+            else:
+                libID = pipelineMonitor(**{'libID':i, 'patientName':v,'fqMonitor':'不存在', 'fpMonitor':'未开始', 'pearMonitor':'未开始', 'top15Monitor':'未开始', 
+                                           'qcMonitor':'未开始', 'reportMonitor':'未生成', 'reportcheckMonitor':'未审核'})
+                db.session.add(libID)
+        db.session.commit()
+        experinfo_list = []
+        for i in experID_list:
+            experinfo = experimenttohos.query.filter(experimenttohos.experimentID == i).first()
+            experinfo_list.append(experinfo.to_json())
+        return jsonify({'msg': 'success', 'code': 200, 'data':experinfo_list})
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return jsonify({'msg': 'fail', 'code': 500})
 
 @expertohos.post('/searchexperinfo')
 @jwt_required()
