@@ -93,29 +93,53 @@ def getUserList():
         res.append({'username':i['username'], 'department':i['department'], 'addtime':i['addtime']})
     return jsonify({'msg':'success', 'code':200, 'data':res})
 
+## 获取用户签名
+@user.get('/getSignature')
+@jwt_required()
+def getSignature():
+    info = testandcheck.query.all()
+    if info:
+        res = [{'signName':i.Name, 'addtime':i.addtime} for i in info]
+        return jsonify({'msg':'success', 'code':200, 'data':res})
+    else:
+        return jsonify({'msg':'暂无签名！', 'code':412})
+
 ##上传签名图片
 @user.post('/uploadSignature')
 @jwt_required()
 def uploadSignature():
-    username = request.json['username']
-    signature = request.json['signature']
+    data = request.json['data']
+    signName = data['signName']
+    signature = data['signature'].replace('data:image/png;base64,','')
     imgdata = base64.b64decode(signature)
     random_letters = ''.join(random.choices(string.ascii_letters, k=6))
-    info = testandcheck.query.filter(testandcheck.Name == username).first()
+    info = testandcheck.query.filter(testandcheck.Name == signName).first()
+    info2 = testandcheck.query.filter(testandcheck.pngPath == random_letters).first()
+    if info2:
+        while True:
+            random_letters = ''.join(random.choices(string.ascii_letters, k=6))
+            info2 = testandcheck.query.filter(testandcheck.pngPath == random_letters).first()
+            if not info2:
+                break
     if info:
         return jsonify({'msg':'签名已存在！', 'code':412})
     else:    
         #将图片保存为文件
         with open(f"/data/yubei/Biotech_report/images/{random_letters}.png",'wb') as f:
             f.write(imgdata)
-        return jsonify({'msg':'success', 'code':200})
+        #将图片路径保存到数据库
+        t = testandcheck(Name=signName, pngPath=random_letters)
+        db.session.add(t)
+        db.session.commit()
+        return jsonify({'msg':'上传签名成功！', 'code':200})
     
 ##删除签名图片
 @user.post('/deleteSignature')
 @jwt_required()
 def deleteSignature():
-    username = request.json['username']
-    info = testandcheck.query.filter(testandcheck.Name == username).first()
+    data = request.json['data']
+    signName = data['signName']
+    info = testandcheck.query.filter(testandcheck.Name == signName).first()
     if info:
         db.session.delete(info)
         db.session.commit()
