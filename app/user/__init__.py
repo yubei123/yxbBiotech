@@ -8,6 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import base64
 import random  
 import string
+import subprocess
 
 user = Blueprint('user', __name__)
 
@@ -141,6 +142,7 @@ def deleteSignature():
     signName = data['signName']
     info = testandcheck.query.filter(testandcheck.Name == signName).first()
     if info:
+        subprocess.run(f'rm -f /data/yubei/Biotech_report/images/{info.pngPath}.png',shell=True)
         db.session.delete(info)
         db.session.commit()
         return jsonify({'msg':'删除成功！', 'code':200})
