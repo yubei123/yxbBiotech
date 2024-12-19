@@ -396,7 +396,6 @@ def getreport():
                 n = 1
             else:
                 max_n = sorted([i.split('-')[-1] for i in XF_clones.values()], reverse=True)
-                print(max_n)
                 n = int(max_n[0][3:])+1
             for i in data:
                 for s in sitelist: 
@@ -444,7 +443,6 @@ def getreport():
 def reviewreport():
     data = request.get_json()
     reportdir = data['pdf']
-    print(reportdir)
     if os.path.exists(reportdir):
         dirname = '/'.join(reportdir.split('/')[:-1])
         basename = reportdir.split('/')[-1]
